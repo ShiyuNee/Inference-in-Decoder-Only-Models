@@ -39,28 +39,32 @@ def get_args():
     parser.add_argument('--model_path', type=str, default="") 
     parser.add_argument('--batch_size', type=int, default=1)   
     parser.add_argument('--n_shot', type=int, default=-1)
+    parser.add_argument('--task', type=str, default='mmlu')
     args = parser.parse_args()
     args.ra = ra_dict[args.ra]
 
     return args
 
-def run_mmlu(args):
-    subjects = sorted([f.split("_test.csv")[0] for f in os.listdir(os.path.join(args.source, "test")) if "_test.csv" in f])
-    if os.path.exists(args.outfile):
-        os.makedirs(args.outfile)
-    for subject in subjects:
-        print(f'subject: {subject}')
-        all_data = MMLUDataset(args, subject)
-        print(all_data[0])
-
 
 def main():
 
     args = get_args()
-    run_mmlu(args)
-    # engine = Generater(args, all_data)
-    # res = engine.get_res()
-    # write_jsonl(res, args.outfile)
+    engine = Generater(args)
+    subjects = sorted([f.split("_test.csv")[0] for f in os.listdir(os.path.join(args.source, "test")) if "_test.csv" in f])
+    accuracy = {}
+    total_acc = 0
+    if not os.path.exists(args.outfile):
+        os.makedirs(args.outfile)
+    for subject in subjects:
+        print(f'subject: {subject}')
+        all_data = MMLUDataset(args, subject)
+        engine.load_data(all_data)
+        res, score = engine.get_res()
+        accuracy[subject] = score
+        total_acc += score
+        write_jsonl(res, args.outfile + subject + '.jsonl')
+    accuracy['total'] = total_acc / len(subjects)
+    write_jsonl([accuracy], args.outfile + 'accuracy.jsonl')
 
 
 if __name__ == '__main__':

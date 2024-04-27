@@ -1,0 +1,1 @@
+python run_nq.py --source ./nq_sample.jsonl --type qa --ra none --outfile ./res/nq/nq_btsize16_mask.jsonl --model_path ../models/llama2-7B-chat --batch_size 16 --task nq
