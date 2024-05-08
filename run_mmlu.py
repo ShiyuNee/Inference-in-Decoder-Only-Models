@@ -40,6 +40,7 @@ def get_args():
     parser.add_argument('--batch_size', type=int, default=1)   
     parser.add_argument('--n_shot', type=int, default=-1)
     parser.add_argument('--task', type=str, default='mmlu')
+    parser.add_argument('--max_new_tokens', type=int, default=1)
     args = parser.parse_args()
     args.ra = ra_dict[args.ra]
 

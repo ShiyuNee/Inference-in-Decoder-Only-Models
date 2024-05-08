@@ -39,6 +39,7 @@ def get_args():
     parser.add_argument('--model_path', type=str, default="") 
     parser.add_argument('--batch_size', type=int, default=1)   
     parser.add_argument('--task', type=str, default='nq')
+    parser.add_argument('--max_new_tokens', type=int, default=64)
     args = parser.parse_args()
     args.ra = ra_dict[args.ra]
 

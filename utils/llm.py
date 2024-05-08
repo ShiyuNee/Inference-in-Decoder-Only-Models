@@ -70,8 +70,10 @@ class Generater:
 
     def process_res_multi_choice(self, outs, inputs):
         choices = ['A', 'B', 'C', 'D']
+        # get attn_weights when generating the first token
+        attentions = outs['attentions'][0][-1][:, :, -1] # bs, head_num, seq_len(input_len)
         choices_idx = self.tokenizer(choices)['input_ids']
-        choices_idx = [item[1] for item in choices_idx]
+        choices_idx = [item[1] for item in choices_idx] # <s> when idx=0
         scores = outs['scores'] # tuple of tensor (generated_len) -> (batch_size, vocab_size)
         bt_size = inputs.shape[0]
         choices_probs = nn.Softmax(dim=1)(scores[0][:, choices_idx])
@@ -89,7 +91,8 @@ class Generater:
                     'token probs': next_token_probs[bt].tolist(),# choices prob
                     'token_entropy': float(entropy[bt]), # real entropy
                     'choices_entropy': float(choices_entropy[bt]) # probs = softmax(choices)
-                }
+                },
+                'attn_weights': attentions[bt]
             })
             
     def get_res(self):
@@ -100,7 +103,7 @@ class Generater:
         for batch in tqdm(self.dataloader):
             batch = self.tokenizer(batch, return_tensors='pt', padding=True).to(device)
             input_ids, attn_mask = batch['input_ids'], batch['attention_mask']
-            outs = self.model.generate(input_ids, attention_mask=attn_mask, max_new_tokens=64, output_attentions=True, return_dict_in_generate=True, output_scores=True, output_logits=True, pad_token_id=0, top_p=1.0, temperature=1)
+            outs = self.model.generate(input_ids, attention_mask=attn_mask, max_new_tokens=self.args.max_new_tokens, output_attentions=True, return_dict_in_generate=True, output_scores=True, output_logits=True, pad_token_id=0, top_p=1.0, temperature=1)
             if self.args.task == 'mmlu':
                 self.process_res_multi_choice(outs, input_ids) # 得到一个batch的结果
             else:
@@ -127,6 +130,7 @@ class Generater:
                         res_sample['question'] = self.data.format_example(all_data, idx, include_answer=False)
                         res_sample['has_answer'] = res_sample['Res'] == all_data[idx][-1]
                         res_sample['reference'] = all_data[idx][-1]
+                        res_sample['attn_weights'] = self.outputs[begin]['attn_weights'].tolist()
                     else:
                         res_sample['question'] = all_data[idx]['question']
                         res_sample['has_answer'] = has_answer(all_data[idx]['reference'], res_sample['Res'])
