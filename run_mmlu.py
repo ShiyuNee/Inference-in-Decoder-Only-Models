@@ -7,6 +7,7 @@ from utils.utils import load_source
 from utils.prompt import get_prompt
 from utils.data import QADataset, MMLUDataset
 from utils.llm import Generater
+from utils.llm_deepspeed import ParallelGenerater
 from utils.utils import write_jsonl
 
 
@@ -41,6 +42,7 @@ def get_args():
     parser.add_argument('--n_shot', type=int, default=-1)
     parser.add_argument('--task', type=str, default='mmlu')
     parser.add_argument('--max_new_tokens', type=int, default=1)
+    parser.add_argument('--local_rank', type=int, default=0)
     args = parser.parse_args()
     args.ra = ra_dict[args.ra]
 
@@ -50,13 +52,14 @@ def get_args():
 def main():
 
     args = get_args()
-    engine = Generater(args)
+    engine = ParallelGenerater(args)
+    # engine = Generater(args)
     subjects = sorted([f.split("_test.csv")[0] for f in os.listdir(os.path.join(args.source, "test")) if "_test.csv" in f])
     accuracy = {}
     total_acc = 0
     if not os.path.exists(args.outfile):
         os.makedirs(args.outfile)
-    for subject in subjects:
+    for subject in subjects[-9:]:
         print(f'subject: {subject}')
         all_data = MMLUDataset(args, subject)
         engine.load_data(all_data)
