@@ -15,3 +15,8 @@ bash run_nq.sh
 bash run_mmlu.sh
 ```
 
+## Note
+
+> llm_deepspeed.py is a demo for using distributed inference
+>
+> generation_utils is the generation file in transformers
