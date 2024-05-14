@@ -17,6 +17,8 @@ bash run_mmlu.sh
 
 ## Note
 
-> llm_deepspeed.py is a demo for using distributed inference
+
+
+> `llm_deepspeed.py` is a demo for using distributed inference
 >
-> generation_utils is the generation file in transformers
+> `generation_utils.py` is the generation file in transformers used for learning
