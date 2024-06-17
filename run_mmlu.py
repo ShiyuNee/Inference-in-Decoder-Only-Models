@@ -5,7 +5,7 @@ import logging
 import argparse
 from utils.utils import load_source
 from utils.prompt import get_prompt
-from utils.data import QADataset, MMLUDataset
+from utils.data import QADataset, MMLUDataset, TQDataset
 from utils.llm import Generater
 from utils.llm_deepspeed import ParallelGenerater
 from utils.utils import write_jsonl
@@ -41,8 +41,12 @@ def get_args():
     parser.add_argument('--batch_size', type=int, default=1)   
     parser.add_argument('--n_shot', type=int, default=-1)
     parser.add_argument('--task', type=str, default='mmlu')
+    parser.add_argument('--with_answer', type=int, default=0)
     parser.add_argument('--max_new_tokens', type=int, default=1)
     parser.add_argument('--local_rank', type=int, default=0)
+    parser.add_argument('--hidden_states', type=bool, default=False)
+    parser.add_argument('--output_states', type=bool, default=False)
+    parser.add_argument('--attn_weights', type=bool, default=False)
     args = parser.parse_args()
     args.ra = ra_dict[args.ra]
 
@@ -52,16 +56,22 @@ def get_args():
 def main():
 
     args = get_args()
-    engine = ParallelGenerater(args)
-    # engine = Generater(args)
+    print(args)
+    # engine = ParallelGenerater(args)
+    engine = Generater(args)
     subjects = sorted([f.split("_test.csv")[0] for f in os.listdir(os.path.join(args.source, "test")) if "_test.csv" in f])
     accuracy = {}
     total_acc = 0
     if not os.path.exists(args.outfile):
         os.makedirs(args.outfile)
-    for subject in subjects[-9:]:
+    for subject in subjects:
         print(f'subject: {subject}')
-        all_data = MMLUDataset(args, subject)
+        if args.task == 'mmlu':
+            all_data = MMLUDataset(args, subject)
+        elif args.task == 'tq':
+            all_data = TQDataset(args, subject)
+        else:
+            raise ValueError(f'Specify the wrong task: {args.task}')
         engine.load_data(all_data)
         res, score = engine.get_res()
         accuracy[subject] = score

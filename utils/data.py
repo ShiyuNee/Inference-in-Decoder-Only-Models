@@ -42,7 +42,10 @@ class MMLUDataset(Dataset):
         self.dev_data = self.read('dev')
         self.choices = ['A', 'B', 'C', 'D']
         self.prompts = []
-        self.get_prompted_data()
+        if args.with_answer == 0:
+            self.get_prompted_data()
+        else:
+            self.get_gt_prompted_data()
 
     def read(self, mode='test'):
         mmlu_data = pd.read_csv(os.path.join(self.args.source, mode, self.subject + f"_{mode}.csv"), header=None).to_numpy() # no header
@@ -81,6 +84,61 @@ class MMLUDataset(Dataset):
             prompt = base_prompt + prompt
             self.prompts.append(prompt)
         # print(f'total question for {self.subject}: {len(self.prompts)}')
+
+    def get_gt_prompted_data(self):
+        base_prompt = self.gen_prompt(self.args.n_shot)
+        new_data = []
+        for idx in range(len(self.data)):
+            prompt = self.format_example(self.data, idx, include_answer=False)
+            prompt = base_prompt + prompt
+            for ans in ['A', 'B', 'C', 'D']:
+                self.prompts.append(prompt + ans)
+                new_data.append(self.data[idx])
+        self.data = new_data
+        self.idxs = range(len(self.data))
+
+    def __len__(self):
+        return len(self.prompts)
+    
+    def __getitem__(self, index):
+        return self.prompts[index]
+    
+class TQDataset(Dataset):
+    # generate input for the given subject
+    def __init__(self, args, subject):
+        self.args = args
+        self.subject = subject
+        self.data = self.read('test')
+        self.idxs = range(len(self.data))
+        self.choices = ['A', 'B', 'C', 'D']
+        self.prompts = []
+        self.get_prompted_data()
+
+    def read(self, mode='test'):
+        mmlu_data = pd.read_csv(os.path.join(self.args.source, mode, self.subject + f"_{mode}.csv"), header=None).to_numpy() # no header
+        return mmlu_data
+    
+    def format_example(self, data, idx, include_answer=True):
+        # Generate one example (idx) for the given data
+        prompt = data[idx][0] # question
+        k = len(data[idx]) - 2 # count of choices
+        for j in range(k):
+            prompt += "\n{}. {}".format(self.choices[j], data[idx][j+1]) # append each candidate answer
+        prompt += "\nAnswer:"
+        if include_answer: # include answer for the few-shot example
+            prompt += " {}\n\n".format(data[idx][k + 1])
+        return prompt
+    
+    def gen_prompt(self, k=-1):
+        prompt = "The following are multiple choice questions (with answers).\n\n"
+        return prompt
+    
+    def get_prompted_data(self):
+        base_prompt = self.gen_prompt(self.args.n_shot)
+        for idx in range(len(self.data)):
+            prompt = self.format_example(self.data, idx, include_answer=False)
+            prompt = base_prompt + prompt
+            self.prompts.append(prompt)
 
     def __len__(self):
         return len(self.prompts)

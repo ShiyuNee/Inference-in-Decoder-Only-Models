@@ -83,19 +83,24 @@ class Generater:
         choices_entropy = torch.sum(-(choices_probs * torch.log2(choices_probs)), dim=1)
         # print(f'next token probs: {next_token_probs}')
         max_scores, max_indices = torch.max(next_token_probs, dim=1)
-        hidden_states = self.get_hidden_states_multi_choice(outs, bt_size)
+        if self.args.hidden_states:
+            hidden_states = self.get_hidden_states_multi_choice(outs, bt_size)
         for bt in range(bt_size):
-            # print(f'ans: {choices[max_indices[bt]]}')
-            self.outputs.append({
+            temp_res = {
                 'Res': choices[max_indices[bt]],
                 'Log_p':{
                     'token probs': next_token_probs[bt].tolist(),# choices prob
                     'token_entropy': float(entropy[bt]), # real entropy
                     'choices_entropy': float(choices_entropy[bt]) # probs = softmax(choices)
                 },
-                'attn_weights': attentions[bt],
-                'hidden_states': hidden_states[bt]
-            })
+            }
+            if self.args.hidden_states:
+                temp_res['hidden_states'] = hidden_states[bt]
+            if self.args.output_states:
+                temp_res['output_states'] = probs[bt]
+            if self.args.attn_weights:
+                temp_res['attn_weights'] = attentions[bt]
+            self.outputs.append(temp_res)
             
     def get_res(self):
         self.outputs = []
@@ -105,8 +110,10 @@ class Generater:
         for batch in tqdm(self.dataloader):
             batch = self.tokenizer(batch, return_tensors='pt', padding=True).to(device)
             input_ids, attn_mask = batch['input_ids'], batch['attention_mask']
-            outs = self.model.generate(input_ids, attention_mask=attn_mask, max_new_tokens=self.args.max_new_tokens, output_attentions=True, return_dict_in_generate=True, output_scores=True, output_logits=True, output_hidden_states=True, pad_token_id=0, top_p=1.0, temperature=1)
-            if self.args.task == 'mmlu':
+            outs = self.model.generate(input_ids, attention_mask=attn_mask, max_new_tokens=self.args.max_new_tokens, 
+                                       output_attentions=True, return_dict_in_generate=True, output_scores=True, output_logits=True, output_hidden_states=self.args.hidden_states, 
+                                       pad_token_id=0, top_p=1.0, temperature=1)
+            if self.args.task == 'mmlu' or self.args.task == 'tq':
                 self.process_res_multi_choice(outs, input_ids) # 得到一个batch的结果
             else:
                 self.process_res(outs, input_ids)
@@ -128,12 +135,16 @@ class Generater:
                     res_sample['qa_prompt'] = self.data[begin]
                     res_sample['Res'] = self.outputs[begin]['Res']
                     res_sample['Log_p'] = self.outputs[begin]['Log_p']
-                    if self.args.task == 'mmlu':
+                    if self.args.task == 'mmlu' or self.args.task == 'tq':
                         res_sample['question'] = self.data.format_example(all_data, idx, include_answer=False)
                         res_sample['has_answer'] = res_sample['Res'] == all_data[idx][-1]
                         res_sample['reference'] = all_data[idx][-1]
-                        res_sample['attn_weights'] = self.outputs[begin]['attn_weights'].tolist()
-                        res_sample['hidden_states'] = self.outputs[begin]['hidden_states']
+                        if self.args.attn_weights:
+                            res_sample['attn_weights'] = self.outputs[begin]['attn_weights'].tolist()
+                        if self.args.hidden_states:
+                            res_sample['hidden_states'] = self.outputs[begin]['hidden_states']
+                        if self.args.output_states:
+                            res_sample['output_states'] = self.outputs[begin]['output_states'].tolist()
                     else:
                         res_sample['question'] = all_data[idx]['question']
                         res_sample['has_answer'] = has_answer(all_data[idx]['reference'], res_sample['Res'])
