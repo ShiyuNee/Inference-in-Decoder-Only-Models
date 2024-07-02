@@ -5,9 +5,9 @@ import logging
 import argparse
 from utils.utils import load_source
 from utils.prompt import get_prompt
-from utils.data import QADataset, MMLUDataset, TQDataset
+from utils.data import QADataset, MCDataset
 from utils.llm import Generater
-from utils.llm_deepspeed import ParallelGenerater
+# from utils.llm_deepspeed import ParallelGenerater
 from utils.utils import write_jsonl
 
 
@@ -39,7 +39,7 @@ def get_args():
     parser.add_argument('--idx', type=str, default="")   
     parser.add_argument('--model_path', type=str, default="") 
     parser.add_argument('--batch_size', type=int, default=1)   
-    parser.add_argument('--n_shot', type=int, default=-1)
+    parser.add_argument('--n_shot', type=int, default=0)
     parser.add_argument('--task', type=str, default='mmlu')
     parser.add_argument('--with_answer', type=int, default=0)
     parser.add_argument('--max_new_tokens', type=int, default=1)
@@ -64,12 +64,10 @@ def main():
     total_acc = 0
     if not os.path.exists(args.outfile):
         os.makedirs(args.outfile)
-    for subject in subjects:
+    for subject in subjects[:5]:
         print(f'subject: {subject}')
-        if args.task == 'mmlu':
-            all_data = MMLUDataset(args, subject)
-        elif args.task == 'tq':
-            all_data = TQDataset(args, subject)
+        if args.task == 'mmlu' or args.task == 'tq':
+            all_data = MCDataset(args, subject)
         else:
             raise ValueError(f'Specify the wrong task: {args.task}')
         engine.load_data(all_data)

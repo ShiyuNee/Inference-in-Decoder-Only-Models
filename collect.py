@@ -17,14 +17,17 @@ def compute_all_files(dir):
     entro_list, acc_list, token_prob, ref_prob = [], [], [], []
     for item in paths:
         data = read_json(os.path.join(dir, item))
+        temp_acc = []
         for idx in range(len(data)):
             sample = data[idx]
             # if sample['has_answer'] != 1:
             #     continue
+            temp_acc.append(sample['has_answer'])
             entro_list.append(sample['Log_p']['token_entropy'])
             acc_list.append(sample['has_answer'])
             token_prob.append(sample['Log_p']['token probs'][choice_idx[sample['Res']]])
             ref_prob.append(sample['Log_p']['token probs'][choice_idx[sample['reference']]])
+        print(sum(temp_acc) / len(temp_acc))
     print(f'count: {len(acc_list)}')
     print(f'avg acc； {sum(acc_list)/len(acc_list)}')
     print(f'avg entropy: {sum(entro_list)/len(entro_list)}')
