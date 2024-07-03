@@ -5,10 +5,15 @@ import pandas as pd
 import os
 prompt_type = {
     'qa': '\n\n',
-    'qa_evidence': 'Choose the correct answer and explain why it is right.\n\n'
+    'qa_evidence': 'Choose the correct answer and explain your reasoning. Your output should be as short as possible\n\n',
+    'qa_gene': 'Generate a short document that helps answer the question and choose the correct answer.\n\n',
+    'qa_compare': 'Analyze whether each option is rights and choose the best answer.\n\n'
 }
 
 class QADataset(Dataset):
+    """
+    Open-domain generation dataset
+    """
     def __init__(self, args):
         self.data = self.read(args.source)
         self.prompts = []
@@ -82,6 +87,7 @@ class MCDataset(Dataset):
         else:
             prompt = "The following are multiple choice questions (with answers)."
         prompt += prompt_type[self.args.type]
+        
         if k == -1:
             k = len(self.dev_data)
         for i in range(k):
@@ -93,6 +99,7 @@ class MCDataset(Dataset):
         for idx in range(len(self.data)):
             prompt = self.format_example(self.data, idx, include_answer=False)
             prompt = base_prompt + prompt
+            prompt = f"<s>[INST] <<SYS>>\nYou are a helpful assistant<</SYS>> {prompt}[/INST]"
             self.prompts.append(prompt)
         # print(f'total question for {self.subject}: {len(self.prompts)}')
 

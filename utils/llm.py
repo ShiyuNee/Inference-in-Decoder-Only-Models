@@ -112,27 +112,31 @@ class Generater:
         Return:
             - 
         """
-        choices = ['A', 'B', 'C', 'D']
-        out_idx = 0
+        choices = ['A', 'B', 'C', 'D', 'A', 'B', 'C', 'D']
+        all_out_idx, choices_idx = self.get_choice_idx(outs, inputs)
         # get attn_weights when generating the first token
         seqs = outs['sequences'] # batch_size, seq_len, 存储的是token_id
-        print(f'text: {self.tokenizer.batch_decode(seqs[:, inputs.shape[-1]:], skip_sepcial_tokens=True)}')
-
-        choices_idx = self.tokenizer(choices)['input_ids']
-        choices_idx = [item[1] for item in choices_idx] # <s> when idx=0
+        print(self.tokenizer.batch_decode(seqs[:, inputs.shape[-1]:], skip_sepcial_tokens=True))
         scores = outs['scores'] # tuple of tensor (generated_len) -> (batch_size, vocab_size)
+        need_scores = []
         bt_size = inputs.shape[0]
-        choices_probs = nn.Softmax(dim=1)(scores[out_idx][:, choices_idx]) #仅考虑选项的概率
-        probs = nn.Softmax(dim=1)(scores[out_idx])
-        next_token_probs = probs[:, choices_idx] # batch_size, 4
-        entropy = torch.sum(-(probs * torch.log2(probs)), dim=1) # batch_size
-        choices_entropy = torch.sum(-(choices_probs * torch.log2(choices_probs)), dim=1)
+        for bt in range(bt_size):
+            need_scores.append(scores[all_out_idx[bt]][bt])
+        need_scores = torch.stack(need_scores)
+        choices_probs = nn.Softmax(dim=-1)(need_scores[:, choices_idx]) #仅考虑选项的概率
+        probs = nn.Softmax(dim=-1)(need_scores)
+
+        next_token_probs = probs[:, choices_idx] # batch_size, 8
+        entropy = torch.sum(-(probs * torch.log2(probs)), dim=-1) # batch_size, 8
+        choices_entropy = torch.sum(-(choices_probs * torch.log2(choices_probs)), dim=-1) # batch_size, 8
         # print(f'next token probs: {next_token_probs}')
-        max_scores, max_indices = torch.max(next_token_probs, dim=1)
-        if self.args.attn_weights: # 生成的第一个token, 最后一层, 所有头的attn_weights
-            attentions = outs['attentions'][0][-1][:, :, -1] # bs, head_num, seq_len(input_len)
+        max_scores, max_indices = torch.max(next_token_probs, dim=-1)
+
+        if self.args.attn_weights: 
+            attentions = self.get_attn_multi_choice(outs, bt_size, all_out_idx)
+
         if self.args.hidden_states:
-            hidden_states = self.get_hidden_states_multi_choice(outs, bt_size)
+            hidden_states = self.get_hidden_states_multi_choice(outs, bt_size, all_out_idx)
         for bt in range(bt_size):
             temp_res = {
                 'Res': choices[max_indices[bt]],
@@ -186,15 +190,65 @@ class Generater:
         print(f'accuracy: {acc / begin}')
         return res, acc / begin
     
-    def get_hidden_states_multi_choice(self, outs, bt_size):
+    def get_hidden_states_multi_choice(self, outs, bt_size, need_idx):
         """
         得到输出第一个token时每一层的hidden_state
+        Input:
+            - out: generate结果
+            - bt_size: batch size
+            - need_idx: 每个batch生成结果中,选项token的idx
+        Return:
+            - res: 每一层对应的hidden states, (batch_size, layers, hidden_dim)
+        Note:
+            - outs['hidden_states'] tuples of (genetared_token, layer)->(bs, generated_len, hidden_dim)
         """
         res = [[] for _ in range(bt_size)]
-        for layer in range(len(outs['hidden_states'][0])):
-            item = outs['hidden_states'][0][layer] # bs, generated_len(input_len or 1), hidden_size
-            for idx in range(bt_size):
-                res[idx].append(item[idx][-1].tolist())
+        for bt in range(bt_size): # 遍历sample
+            temp_idx = need_idx[bt] # 当前sample需要考虑的token的idx
+            for layer in range(len(outs['hidden_states'][temp_idx])): # 该token的每一层
+                hidden_states = outs['hidden_states'][temp_idx][layer][bt][-1] # bs, generated_len(input_len or 1), hidden_size
+                res[bt].append(hidden_states.tolist())
         return res
+
+    def get_attn_multi_choice(self, outs, bt_size, need_idx):
+        """
+        提取选项生成时的各层attention weights
+        Input:
+            - out: generate结果
+            - bt_size: batch size
+            - need_idx: 每个batch生成结果中,选项token的idx
+        Return:
+            - res: 每一层中所有attn_head的注意力权重, (batch_size, layers, num_head, context_len)
+        Note:
+            - outs['attentions'] tuples of (genetared_token, layer)->(bs, num_head, generated_len, context_len)
+        """
+        res = [[] for _ in range(bt_size)]
+        for bt in range(bt_size):
+            temp_idx = need_idx[bt]
+            for layer in range(len(outs['attentions'][temp_idx])): # temp_idx处token对应的所有层
+                attentions = outs['attentions'][temp_idx][layer][bt, :, -1] # bs, head_num, seq_len(input_len)
+                res[bt].append(attentions.tolist())
+        return res
+
+    def get_choice_idx(self, outs, inputs):
+        """
+        找到每个样本中choice出现的位置
+        """
+        batch_size, input_len = inputs.shape
+        choices = ['A', 'B', 'C', 'D', '(A)', '(B)', '(C)', '(D)']
+        out_idx = [0 for _ in range(batch_size)]
+        # get attn_weights when generating the first token
+        seqs = outs['sequences'] # batch_size, seq_len, 存储的是token_id
+        new_token_ids = seqs[:, input_len:]
+
+        choices_idx = self.tokenizer(choices)['input_ids']
+        choices_idx = [item[1] if len(item) == 2 else item[2] for item in choices_idx] # _A, A等的token_id
+        for bt in range(batch_size): # 遍历batch
+            for idx in range(len(new_token_ids[bt])): # 一个序列中token
+                token_id = new_token_ids[bt][idx]
+                if token_id in choices_idx: # 第一个出现选项的位置
+                    out_idx[bt] = idx
+                    break
+        return out_idx, choices_idx
     
     
