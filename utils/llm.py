@@ -31,8 +31,8 @@ class Generater:
             batch = self.tokenizer(batch, return_tensors='pt', padding=True).to(device)
             input_ids, attn_mask = batch['input_ids'], batch['attention_mask']
             outs = self.model.generate(input_ids, attention_mask=attn_mask, max_new_tokens=self.args.max_new_tokens, 
-                                       output_attentions=self.args.attn_weights, return_dict_in_generate=True, output_scores=True, output_logits=True, output_hidden_states=self.args.hidden_states, 
-                                       pad_token_id=0, top_p=1.0, temperature=1)
+                                       output_attentions=self.args.attn_weights, return_dict_in_generate=True, output_scores=True, output_hidden_states=self.args.hidden_states, 
+                                       pad_token_id=0, top_p=1.0, temperature=1, do_sample=False)
             if self.args.task == 'mmlu' or self.args.task == 'tq':
                 self.process_res_multi_choice(outs, input_ids) # 得到一个batch的结果
             else:
@@ -42,7 +42,7 @@ class Generater:
     
     def process_res(self, outs, inputs):
         """
-        处理模型generate输出, 得到输出文本,每个token的概率,以及每个token的entropy
+        按batch处理模型generate输出, 得到输出文本,每个token的概率,以及每个token的entropy
         Input:
             - outs: generate输出结果
             - inputs: generate的input_ids
@@ -58,7 +58,6 @@ class Generater:
             }
         """
         # attention和scores都不包含输入
-        attentions = outs['attentions'] # tuple(generated_token, layer) -> (batch_size, num_heads, generated_length, sequence_length)
         scores = outs['scores'] # tuple of tensor (generated_len) -> (batch_size, vocab_size)
         seqs = outs['sequences'] # batch_size, seq_len, 存储的是token_id
         input_len = inputs.shape[-1]
@@ -88,13 +87,19 @@ class Generater:
             ans_entropy.append(cur_entropy.tolist())
             top_indices.append(tmp_indices.tolist())
             top_scores.append(tmp_scores.tolist())
+        
         top_indices = torch.tensor(top_indices, dtype=torch.int64).t()
         top_scores = torch.tensor(top_scores).t()
         ans_scores = torch.tensor(ans_scores).t()
         ans_entropy = torch.tensor(ans_entropy).t()
+        if self.args.hidden_states:
+            # pos_idx = torch.zeros(bt_size, dtype=torch.int) # 全选第一个位置
+            
+            pos_idx = [item if item != text_len else item - 1 for item in end_idx] # 全选最后一个位置
+            hidden_states = self.get_hidden_states_for_given_pos(outs, bt_size, pos_idx)
         for bt in range(bt_size):
             print(f'ans: {self.tokenizer.decode(new_ids[bt][:end_idx[bt]])}')
-            self.outputs.append({
+            temp_res = ({
                 'Res': self.tokenizer.decode(new_ids[bt][:end_idx[bt]]).strip(),
                 'Log_p':{
                     'tokens': new_ids[bt][:end_idx[bt]].tolist(),
@@ -102,6 +107,10 @@ class Generater:
                     'token_entropy': ans_entropy[bt][:end_idx[bt]].tolist()
                 }
             })
+            if self.args.hidden_states:
+                temp_res['hidden_states'] = hidden_states[bt]
+
+            self.outputs.append(temp_res)
 
     def process_res_multi_choice(self, outs, inputs):
         """
@@ -136,7 +145,7 @@ class Generater:
             attentions = self.get_attn_multi_choice(outs, bt_size, all_out_idx)
 
         if self.args.hidden_states:
-            hidden_states = self.get_hidden_states_multi_choice(outs, bt_size, all_out_idx)
+            hidden_states = self.get_hidden_states_for_given_pos(outs, bt_size, all_out_idx)
         for bt in range(bt_size):
             temp_res = {
                 'Res': choices[max_indices[bt]],
@@ -173,16 +182,16 @@ class Generater:
                         res_sample['question'] = self.data.format_example(all_data, idx, include_answer=False)
                         res_sample['has_answer'] = res_sample['Res'] == all_data[idx][-1]
                         res_sample['reference'] = all_data[idx][-1]
-                        if self.args.attn_weights:
-                            res_sample['attn_weights'] = self.outputs[begin]['attn_weights'].tolist()
-                        if self.args.hidden_states:
-                            res_sample['hidden_states'] = self.outputs[begin]['hidden_states']
-                        if self.args.output_states:
-                            res_sample['output_states'] = self.outputs[begin]['output_states'].tolist()
                     else:
                         res_sample['question'] = all_data[idx]['question']
                         res_sample['has_answer'] = has_answer(all_data[idx]['reference'], res_sample['Res'])
                         res_sample['reference'] = all_data[idx]['reference']
+                    if self.args.attn_weights:
+                        res_sample['attn_weights'] = self.outputs[begin]['attn_weights'].tolist()
+                    if self.args.hidden_states:
+                        res_sample['hidden_states'] = self.outputs[begin]['hidden_states']
+                    if self.args.output_states:
+                        res_sample['output_states'] = self.outputs[begin]['output_states'].tolist()
                     acc += res_sample['has_answer']
                 res.append(res_sample)
                 begin += 1
@@ -190,13 +199,13 @@ class Generater:
         print(f'accuracy: {acc / begin}')
         return res, acc / begin
     
-    def get_hidden_states_multi_choice(self, outs, bt_size, need_idx):
+    def get_hidden_states_for_given_pos(self, outs, bt_size, need_idx):
         """
-        得到输出第一个token时每一层的hidden_state
+        得到指定位置token生成时每一层的hidden_state
         Input:
             - out: generate结果
             - bt_size: batch size
-            - need_idx: 每个batch生成结果中,选项token的idx
+            - need_idx: 每个batch生成结果中,需要或许hidden state的位置
         Return:
             - res: 每一层对应的hidden states, (batch_size, layers, hidden_dim)
         Note:

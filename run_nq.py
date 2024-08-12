@@ -40,6 +40,9 @@ def get_args():
     parser.add_argument('--batch_size', type=int, default=1)   
     parser.add_argument('--task', type=str, default='nq')
     parser.add_argument('--max_new_tokens', type=int, default=64)
+    parser.add_argument('--hidden_states', type=bool, default=False)
+    parser.add_argument('--output_states', type=bool, default=False)
+    parser.add_argument('--attn_weights', type=bool, default=False)
     args = parser.parse_args()
     args.ra = ra_dict[args.ra]
 
