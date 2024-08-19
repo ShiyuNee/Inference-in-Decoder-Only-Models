@@ -20,6 +20,7 @@ class Generater:
 
     def load_data(self, data):
         self.data = data
+        print(f'input: {self.data[:10]}')
         self.dataloader = DataLoader(self.data, shuffle=False, batch_size=self.batch_size)
 
     def get_res(self):
@@ -89,13 +90,11 @@ class Generater:
             top_scores.append(tmp_scores.tolist())
         
         top_indices = torch.tensor(top_indices, dtype=torch.int64).t()
-        top_scores = torch.tensor(top_scores).t()
+        top_scores = torch.tensor(top_scores).t() # batch_size, text_len
         ans_scores = torch.tensor(ans_scores).t()
         ans_entropy = torch.tensor(ans_entropy).t()
         if self.args.hidden_states:
-            # pos_idx = torch.zeros(bt_size, dtype=torch.int) # 全选第一个位置
-            
-            pos_idx = [item if item != text_len else item - 1 for item in end_idx] # 全选最后一个位置
+            pos_idx = self.get_need_idx_for_generation(top_scores, end_idx, self.args.hidden_idx_mode)
             hidden_states = self.get_hidden_states_for_given_pos(outs, bt_size, pos_idx)
         for bt in range(bt_size):
             print(f'ans: {self.tokenizer.decode(new_ids[bt][:end_idx[bt]])}')
@@ -121,7 +120,7 @@ class Generater:
         Return:
             - 
         """
-        choices = ['A', 'B', 'C', 'D', 'A', 'B', 'C', 'D']
+        choices = ['A', 'B', 'C', 'D', 'A', 'B', 'C', 'D'] # token可能有A和(A, 长度为8是为了对应
         all_out_idx, choices_idx = self.get_choice_idx(outs, inputs)
         # get attn_weights when generating the first token
         seqs = outs['sequences'] # batch_size, seq_len, 存储的是token_id
@@ -205,18 +204,34 @@ class Generater:
         Input:
             - out: generate结果
             - bt_size: batch size
-            - need_idx: 每个batch生成结果中,需要或许hidden state的位置
+            - need_idx: 每个batch生成结果中,需要获取hidden state的位置
+            - need_layers: 需要获取的hidden states所在的层
         Return:
             - res: 每一层对应的hidden states, (batch_size, layers, hidden_dim)
         Note:
             - outs['hidden_states'] tuples of (genetared_token, layer)->(bs, generated_len, hidden_dim)
         """
+        if self.args.need_layers == 'last':
+            need_layers = [-1]
+        elif self.args.need_layers == 'all':
+            need_layers = range(len(outs['hidden_states'][temp_idx]))
+        else:
+            raise ValueError('Specify the wrong need_layers')
+        
         res = [[] for _ in range(bt_size)]
         for bt in range(bt_size): # 遍历sample
             temp_idx = need_idx[bt] # 当前sample需要考虑的token的idx
-            for layer in range(len(outs['hidden_states'][temp_idx])): # 该token的每一层
-                hidden_states = outs['hidden_states'][temp_idx][layer][bt][-1] # bs, generated_len(input_len or 1), hidden_size
-                res[bt].append(hidden_states.tolist())
+            if type(temp_idx) != list:
+                for layer in need_layers: # 该token的每一层
+                    hidden_states = outs['hidden_states'][temp_idx][layer][bt][-1] # bs, generated_len(input_len or 1), hidden_size
+                    res[bt].append(hidden_states.to(torch.float16).tolist())
+            else:
+                for layer in need_layers: # 该token的每一层
+                    temp_res = []
+                    for item in temp_idx: # 所有需要考虑的tokens
+                        temp_res.append(outs['hidden_states'][item][layer][bt][-1])
+                    temp_res = torch.stack(temp_res)
+                    res[bt].append(torch.mean(temp_res, dim=0).to(torch.float16).tolist())
         return res
 
     def get_attn_multi_choice(self, outs, bt_size, need_idx):
@@ -258,6 +273,28 @@ class Generater:
                 if token_id in choices_idx: # 第一个出现选项的位置
                     out_idx[bt] = idx
                     break
-        return out_idx, choices_idx
+        return out_idx, choices_idx      
+
+    def get_need_idx_for_generation(self, probs, end_idx, mode):
+        """
+        根据mode找到需要探测的token的index
+        """ 
+        res_idx = []
+        bt_size = probs.shape[0]
+        text_len = probs.shape[1]
+        assert mode in ['first', 'last', 'avg', 'min']
+        if mode == 'first':
+            res_idx = torch.zeros(bt_size, dtype=torch.int) # 全选第一个位置
+        elif mode == 'last':
+            res_idx = [item if item != text_len else item - 1 for item in end_idx] # 全选最后一个位置
+        elif mode == 'min':
+            for bt in range(bt_size):
+                min_prob, min_index = torch.min(probs[bt][:end_idx[bt]], dim=-1) # batch_size
+                res_idx.append(min_index)
+        elif mode == 'avg':
+            for bt in range(bt_size):
+                res_idx.append(list(range(end_idx[bt])))
+        return res_idx
+        
     
     

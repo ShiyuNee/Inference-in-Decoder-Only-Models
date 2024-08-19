@@ -73,13 +73,9 @@ def get_prompt(sample, args):
         paras = '\n'.join(doc)
         prompt = prompt_dict[args.type]['ra']
     tail = prompt_dict[args.type]['tail'] if not args.usechat else ""
-    prediction = sample['Res'] if args.type == 'post' or args.type == 'post_evidence' or args.type == 'paraphrase' else ""
-    doc = ""
-    if args.type == 'post_evidence_judge':
-        doc = sample['wevidence'] if sample['has_answer'] == 0 else sample['revidence']
-        prompt = prompt.format(question=sample[ref_key], paras=paras, prediction=prediction, revidence=doc) + tail
-    else:
-        prompt = prompt.format(question=sample[ref_key], paras=paras, prediction=prediction) + tail
+    prediction = sample['Res'] if 'post' in args.type else ""
+    prompt = prompt.format(question=sample[ref_key], paras=paras, prediction=prediction) + tail
+    prompt = '<s>[INST] <<SYS>>\nYou are a helpful assistant<</SYS>>' + prompt + '[/INST]'
     return prompt
 
 
