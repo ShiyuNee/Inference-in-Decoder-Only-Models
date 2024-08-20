@@ -6,6 +6,7 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 import torch.nn as nn
 from tqdm import tqdm
+
     
 class Generater:
     def __init__(self, args):
@@ -16,11 +17,14 @@ class Generater:
         self.tokenizer.padding_side = "left"
         self.batch_size = args.batch_size
         self.outputs = []
+        self.eos_id_dict = {
+            'llama2-7b-chat': self.tokenizer.eos_token_id,
+            'llama3-8b-instruct': self.tokenizer.convert_tokens_to_ids(['<|eot_id|>'])[0]
+        }
         print('load generater finish.')
 
     def load_data(self, data):
         self.data = data
-        print(f'input: {self.data[:10]}')
         self.dataloader = DataLoader(self.data, shuffle=False, batch_size=self.batch_size)
 
     def get_res(self):
@@ -69,11 +73,12 @@ class Generater:
         text_len = new_ids.shape[-1]
         end_idx = []
         for idx in range(len(new_ids)):
-            eos_idx = torch.where(new_ids[idx] == self.tokenizer.eos_token_id)[0] # 返回tuple, [0]是该元素出现位置的tensor
+            eos_idx = torch.where(new_ids[idx] == self.eos_id_dict[self.args.model_name])[0] # 返回tuple, [0]是该元素出现位置的tensor
             if len(eos_idx) == 0: # 没有eos_token
                 end_idx.append(text_len)
             else:
                 end_idx.append(eos_idx[0]) # eos_token出现的第一个位置
+        print(f'end idx: {end_idx}')
         top_indices = [] # 存储概率最大的token_id
         top_scores = [] # 存储对应的probs
         ans_scores = [] # 存储seqs对应probs
@@ -97,7 +102,7 @@ class Generater:
             pos_idx = self.get_need_idx_for_generation(top_scores, end_idx, self.args.hidden_idx_mode)
             hidden_states = self.get_hidden_states_for_given_pos(outs, bt_size, pos_idx)
         for bt in range(bt_size):
-            print(f'ans: {self.tokenizer.decode(new_ids[bt][:end_idx[bt]])}')
+            # print(f'ans: {self.tokenizer.decode(new_ids[bt][:end_idx[bt]])}')
             temp_res = ({
                 'Res': self.tokenizer.decode(new_ids[bt][:end_idx[bt]]).strip(),
                 'Log_p':{
@@ -124,7 +129,7 @@ class Generater:
         all_out_idx, choices_idx = self.get_choice_idx(outs, inputs)
         # get attn_weights when generating the first token
         seqs = outs['sequences'] # batch_size, seq_len, 存储的是token_id
-        print(self.tokenizer.batch_decode(seqs[:, inputs.shape[-1]:], skip_sepcial_tokens=True))
+        # print(self.tokenizer.batch_decode(seqs[:, inputs.shape[-1]:], skip_sepcial_tokens=True))
         scores = outs['scores'] # tuple of tensor (generated_len) -> (batch_size, vocab_size)
         need_scores = []
         bt_size = inputs.shape[0]
@@ -215,17 +220,21 @@ class Generater:
             need_layers = [-1]
         elif self.args.need_layers == 'all':
             need_layers = range(len(outs['hidden_states'][temp_idx]))
+        elif self.args.need_layers == 'mid':
+            need_layers = [int(len(outs['hidden_states']) / 2)]
         else:
             raise ValueError('Specify the wrong need_layers')
         
         res = [[] for _ in range(bt_size)]
         for bt in range(bt_size): # 遍历sample
             temp_idx = need_idx[bt] # 当前sample需要考虑的token的idx
-            if type(temp_idx) != list:
+            if type(temp_idx) != list: # 只需要取一个token
                 for layer in need_layers: # 该token的每一层
                     hidden_states = outs['hidden_states'][temp_idx][layer][bt][-1] # bs, generated_len(input_len or 1), hidden_size
                     res[bt].append(hidden_states.to(torch.float16).tolist())
-            else:
+            else: # 取所有token
+                if self.args.hidden_idx_mode == 'every':
+                    pass
                 for layer in need_layers: # 该token的每一层
                     temp_res = []
                     for item in temp_idx: # 所有需要考虑的tokens
@@ -294,7 +303,8 @@ class Generater:
         elif mode == 'avg':
             for bt in range(bt_size):
                 res_idx.append(list(range(end_idx[bt])))
+        elif mode == 'every':
+            for bt in range(bt_size):
+                res_idx.append(list(range(end_idx[bt])))
         return res_idx
-        
-    
     

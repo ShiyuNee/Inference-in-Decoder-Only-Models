@@ -57,6 +57,17 @@ prompt_dict = {
     },
 }
 
+model_template_dict = {
+    'llama2-7b-chat':{
+        'prefix': '<s>[INST] <<SYS>>\nYou are a helpful assistant<</SYS>>',
+        'end': '[/INST]'
+    },
+    'llama3-8b-instruct':{
+        'prefix': '<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\nYou are a helpful AI assistant for answering factual questions<|eot_id|><|start_header_id|>user<|end_header_id|>\n\n',
+        'end': "<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
+    }
+}
+
 def get_prompt(sample, args):
     paras = ""
     ref_key = 'question'
@@ -75,7 +86,8 @@ def get_prompt(sample, args):
     tail = prompt_dict[args.type]['tail'] if not args.usechat else ""
     prediction = sample['Res'] if 'post' in args.type else ""
     prompt = prompt.format(question=sample[ref_key], paras=paras, prediction=prediction) + tail
-    prompt = '<s>[INST] <<SYS>>\nYou are a helpful assistant<</SYS>>' + prompt + '[/INST]'
+    template_prompt = model_template_dict[args.model_name]
+    prompt = template_prompt['prefix'] + prompt + template_prompt['end']
     return prompt
 
 
