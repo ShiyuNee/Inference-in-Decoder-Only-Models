@@ -47,6 +47,7 @@ def get_args():
     parser.add_argument('--hidden_states', type=bool, default=False)
     parser.add_argument('--output_states', type=bool, default=False)
     parser.add_argument('--attn_weights', type=bool, default=False)
+    parser.add_argument('--need_layers', type=str, default='last', choices=['all', 'last', 'mid'])
     args = parser.parse_args()
     args.ra = ra_dict[args.ra]
 

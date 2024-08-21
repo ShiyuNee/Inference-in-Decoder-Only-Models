@@ -78,7 +78,7 @@ class Generater:
                 end_idx.append(text_len)
             else:
                 end_idx.append(eos_idx[0]) # eos_token出现的第一个位置
-        print(f'end idx: {end_idx}')
+        # print(f'end idx: {end_idx}')
         top_indices = [] # 存储概率最大的token_id
         top_scores = [] # 存储对应的probs
         ans_scores = [] # 存储seqs对应probs
@@ -99,8 +99,11 @@ class Generater:
         ans_scores = torch.tensor(ans_scores).t()
         ans_entropy = torch.tensor(ans_entropy).t()
         if self.args.hidden_states:
-            pos_idx = self.get_need_idx_for_generation(top_scores, end_idx, self.args.hidden_idx_mode)
-            hidden_states = self.get_hidden_states_for_given_pos(outs, bt_size, pos_idx)
+            if self.args.hidden_idx_mode == 'every': # 得到ans token在每一层的概率, 每一层的top-1 token
+                probs_for_generated_tokens, tokens_for_each_layer = self.get_token_and_prob_for_each_pos(outs, bt_size, end_idx) #(bt_size, layers, ans_len)
+            else:
+                pos_idx = self.get_need_idx_for_generation(top_scores, end_idx, self.args.hidden_idx_mode)
+                hidden_states = self.get_hidden_states_for_given_pos(outs, bt_size, pos_idx)
         for bt in range(bt_size):
             # print(f'ans: {self.tokenizer.decode(new_ids[bt][:end_idx[bt]])}')
             temp_res = ({
@@ -112,7 +115,11 @@ class Generater:
                 }
             })
             if self.args.hidden_states:
-                temp_res['hidden_states'] = hidden_states[bt]
+                if self.args.hidden_idx_mode == 'every':
+                    temp_res['probs_for_generated_tokens'] = probs_for_generated_tokens[bt]
+                    temp_res['tokens_for_each_layer'] = tokens_for_each_layer[bt]
+                else:
+                    temp_res['hidden_states'] = hidden_states[bt]
 
             self.outputs.append(temp_res)
 
@@ -168,6 +175,9 @@ class Generater:
             self.outputs.append(temp_res)
 
     def calculate_res(self):
+        """
+        保存输出结果
+        """
         all_data = self.data.data # 所有数据, 需要算结果的数据可能是其中一部分
         res = []
         begin = 0
@@ -193,7 +203,11 @@ class Generater:
                     if self.args.attn_weights:
                         res_sample['attn_weights'] = self.outputs[begin]['attn_weights'].tolist()
                     if self.args.hidden_states:
-                        res_sample['hidden_states'] = self.outputs[begin]['hidden_states']
+                        if self.args.hidden_idx_mode == 'every':
+                            res_sample['probs_for_generated_tokens'] = self.outputs[begin]['probs_for_generated_tokens']
+                            res_sample['tokens_for_each_layer'] = self.outputs[begin]['tokens_for_each_layer']
+                        else:
+                            res_sample['hidden_states'] = self.outputs[begin]['hidden_states']
                     if self.args.output_states:
                         res_sample['output_states'] = self.outputs[begin]['output_states'].tolist()
                     acc += res_sample['has_answer']
@@ -233,8 +247,6 @@ class Generater:
                     hidden_states = outs['hidden_states'][temp_idx][layer][bt][-1] # bs, generated_len(input_len or 1), hidden_size
                     res[bt].append(hidden_states.to(torch.float16).tolist())
             else: # 取所有token
-                if self.args.hidden_idx_mode == 'every':
-                    pass
                 for layer in need_layers: # 该token的每一层
                     temp_res = []
                     for item in temp_idx: # 所有需要考虑的tokens
@@ -303,8 +315,30 @@ class Generater:
         elif mode == 'avg':
             for bt in range(bt_size):
                 res_idx.append(list(range(end_idx[bt])))
-        elif mode == 'every':
-            for bt in range(bt_size):
-                res_idx.append(list(range(end_idx[bt])))
         return res_idx
+    
+    def get_token_and_prob_for_each_pos(self, outs, bt_size, end_idx):
+        """
+        得到每个位置每一层top-1 token, 最终生成的token在每一层的概率
+        """
+        probs_for_generated_token = [[] for _ in range(bt_size)] # 最终生成的token在每一层对应的概率
+        tokens_for_each_pos = [[] for _ in range(bt_size)] #
+        for bt in range(bt_size):
+            end_pos = end_idx[bt]
+            for pos in range(end_pos):
+                hidden_states_for_all_layers = []
+                for layer in range(len(outs['hidden_states'][pos]))[1:]:
+                    hidden_states = outs['hidden_states'][pos][layer][bt][-1] # hidden_size
+                    hidden_states_for_all_layers.append(hidden_states)
+                hidden_states_for_all_layers = torch.stack(hidden_states_for_all_layers) # (layers, hidden_dim)
+                probs = nn.Softmax(dim=-1)(self.model.lm_head(hidden_states_for_all_layers))
+                max_value_for_each_layer, max_token_for_each_layer = torch.max(probs, dim=-1)
+                tokens_for_each_pos[bt].append(self.tokenizer.convert_ids_to_tokens(max_token_for_each_layer))
+                generated_token = max_token_for_each_layer[-1]
+                probs_for_generated_token[bt].append(probs[:, generated_token])
+            
+            probs_for_generated_token[bt] = torch.stack(probs_for_generated_token[bt]).t().tolist()
+            probs_for_generated_token[bt] = [[round(element, 4) for element in row] for row in probs_for_generated_token[bt]]
+            tokens_for_each_pos[bt] = [[tokens_for_each_pos[bt][j][i] for j in range(len(tokens_for_each_pos[bt]))] for i in range(len(tokens_for_each_pos[bt][0]))]
+        return probs_for_generated_token, tokens_for_each_pos
     

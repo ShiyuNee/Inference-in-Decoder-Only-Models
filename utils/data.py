@@ -33,6 +33,9 @@ class QADataset(Dataset):
             if 'info' not in self.data[idx]:
                 self.idxs.append(idx)
                 self.prompts.append(get_prompt(self.data[idx], self.args))
+        
+        # for item in self.prompts[:5]:
+        #     print(f'example data: {item}')
             
 
     def __len__(self):
