@@ -86,7 +86,7 @@ class MCDataset(Dataset):
     
     def gen_prompt(self, k=-1):
         if self.args.task == 'mmlu':
-            prompt = "The following are multiple choice questions (with answers) about {}.".format(self.format_subject(self.subject))
+            prompt = "The following are multiple choice questions (with answers) about {}. Select the letter corresponding to the correct answer. Your response must be concise, without any irrelevant words. Do not include conversational words and do not provide any explanation.".format(self.format_subject(self.subject))
         else:
             prompt = "The following are multiple choice questions (with answers)."
         prompt += prompt_type[self.args.type]

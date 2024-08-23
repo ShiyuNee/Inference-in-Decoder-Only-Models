@@ -47,9 +47,11 @@ def get_args():
     parser.add_argument('--hidden_states', type=bool, default=False)
     parser.add_argument('--output_states', type=bool, default=False)
     parser.add_argument('--attn_weights', type=bool, default=False)
+    parser.add_argument('--hidden_idx_mode', type=str, default='last')
     parser.add_argument('--need_layers', type=str, default='last', choices=['all', 'last', 'mid'])
     args = parser.parse_args()
     args.ra = ra_dict[args.ra]
+    args.model_name = args.model_path.split('/')[-1].replace('_', '-').lower()
 
     return args
 
@@ -65,8 +67,9 @@ def main():
     total_acc = 0
     if not os.path.exists(args.outfile):
         os.makedirs(args.outfile)
-    for subject in subjects[:5]:
-        print(f'subject: {subject}')
+    cnt = 0
+    for subject in subjects:
+        print(f'cnt: {cnt}, subject: {subject}')
         if args.task == 'mmlu' or args.task == 'tq':
             all_data = MCDataset(args, subject)
         else:
@@ -76,6 +79,7 @@ def main():
         accuracy[subject] = score
         total_acc += score
         write_jsonl(res, args.outfile + subject + '.jsonl')
+        cnt += 1
     accuracy['total'] = total_acc / len(subjects)
     write_jsonl([accuracy], args.outfile + 'accuracy.jsonl')
 
