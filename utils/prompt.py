@@ -5,6 +5,11 @@ prompt_dict = {
         'ra': 'Given the following information: \n{paras}\nAnswer the following question based on the given information or your internal knowledge with one or few words.\nQuestion: {question}{prediction}',
         'tail': '\nAnswer: ',
     },
+    'mc_qa': {
+        'none': 'The following are multiple choice questions (with answers). Select the letter corresponding to the correct answer. Your response must be concise, without any irrelevant words. Do not include conversational words and do not provide any explanation.\n\n{question}{paras}{prediction}',
+        'ra': 'Given the following information: \n{paras}\nAnswer the following question based on the given information or your internal knowledge with one or few words.\nQuestion: {question}{prediction}',
+        'tail': '\nAnswer: ',
+    },
     'qa_evidence': {
         'none': 'Answer the following question based on your internal knowledge with one or few words and explain why you give this answer.\nQuestion: {question}{paras}{prediction}',
         'ra': 'Given the following information: \n{paras}\nAnswer the following question based on the given information or your internal knowledge with one or few words and explain why you give this answer.\nQuestion: {question}{prediction}',
@@ -23,7 +28,7 @@ prompt_dict = {
     'post': {
         'none': 'If you are sure the answer is accurate and correct, please say \"certain\". If you are not confident with the answer, please say \"uncertain\".\nQuestion: {question}{paras}\nAnswer: {prediction}',
         'ra': 'Given the following information: \n{paras}\nIf you are sure the answer is accurate and correct, please say \"certain\". If you are not confident with the answer, please say \"uncertain\".\nQuestion: {question}\nAnswer: {prediction}',
-        'tail': '\nJudgement is: ',
+        'tail': '\nJudgement is:',
     },
     'post_evidence': {
         'none': 'Give some evidence about why the answer may be right.\nQuestion: {question}{paras}\nAnswer: {prediction}',
@@ -86,6 +91,7 @@ def get_prompt(sample, args):
     tail = prompt_dict[args.type]['tail'] if not args.usechat else ""
     prediction = sample['Res'] if 'post' in args.type else ""
     prompt = prompt.format(question=sample[ref_key], paras=paras, prediction=prediction) + tail
+    # 每个模型特有的prompt格式
     template_prompt = model_template_dict[args.model_name]
     prompt = template_prompt['prefix'] + prompt + template_prompt['end']
     return prompt
