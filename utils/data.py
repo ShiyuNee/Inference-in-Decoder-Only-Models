@@ -88,12 +88,11 @@ class MCDataset(Dataset):
     
     def get_prompted_data(self):
         # base_prompt = self.gen_prompt(self.args.n_shot)
+        self.args.subject = 'about' + self.format_subject(self.subject) 
         for idx in range(len(self.data)):
             question = self.format_example(self.data, idx, include_answer=False)
             prompt = get_prompt({'question': question}, self.args)
             self.prompts.append(prompt)
-            
-        # print(f'total question for {self.subject}: {len(self.prompts)}')
 
     def get_gt_prompted_data(self):
         base_prompt = self.gen_prompt(self.args.n_shot)

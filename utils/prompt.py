@@ -6,7 +6,8 @@ prompt_dict = {
         'tail': '\nAnswer: ',
     },
     'mc_qa': {
-        'none': 'The following are multiple choice questions (with answers). Select the letter corresponding to the correct answer. Your response must be concise, without any irrelevant words. Do not include conversational words and do not provide any explanation.\n\n{question}{paras}{prediction}',
+        'none': 'The following are multiple choice questions (with answers) {subject}. Select the correct answer without any irrelevant words. Do not include conversational words and do not provide any explanation.\n\n{question}{paras}{prediction}',
+        # 'none': 'The following are multiple choice questions (with answers) {subject}.\n\n{question}{paras}{prediction}',
         'ra': 'Given the following information: \n{paras}\nAnswer the following question based on the given information or your internal knowledge with one or few words.\nQuestion: {question}{prediction}',
         'tail': '\nAnswer: ',
     },
@@ -90,7 +91,11 @@ def get_prompt(sample, args):
         prompt = prompt_dict[args.type]['ra']
     tail = prompt_dict[args.type]['tail'] if not args.usechat else ""
     prediction = sample['Res'] if 'post' in args.type else ""
-    prompt = prompt.format(question=sample[ref_key], paras=paras, prediction=prediction) + tail
+    # mmlu基础模板里带subject
+    if args.task == 'mmlu':
+        prompt = prompt.format(question=sample[ref_key], paras=paras, prediction=prediction, subject=args.subject) + tail
+    else:
+        prompt = prompt.format(question=sample[ref_key], paras=paras, prediction=prediction) + tail
     # 每个模型特有的prompt格式
     template_prompt = model_template_dict[args.model_name]
     prompt = template_prompt['prefix'] + prompt + template_prompt['end']

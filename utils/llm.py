@@ -120,7 +120,7 @@ class Generater:
         scores = outs['scores'] # tuple of tensor (generated_len) -> (batch_size, vocab_size)
         new_ids = seqs[:, input_len:] # batch_size, new_seq_len
         end_idx = self.get_generation_end(new_ids)
-        print(f'text: {self.tokenizer.batch_decode(new_ids, skip_sepcial_tokens=True)}')
+        # print(f'text: {self.tokenizer.batch_decode(new_ids, skip_sepcial_tokens=True)}')
         # print(f'end idx: {end_idx}')
         # 找到choice出现位置,以及出现时的token id
         ans_token_idx, choices_idx = self.get_choice_idx(outs, inputs, end_idx)

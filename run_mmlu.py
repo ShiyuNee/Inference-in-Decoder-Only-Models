@@ -67,13 +67,14 @@ def main():
     total_acc = 0
     if not os.path.exists(args.outfile):
         os.makedirs(args.outfile)
+
     for idx in range(len(subjects)):
         subject = subjects[idx]
-        print(f'cnt: {idx}, subject: {subject}')
         if args.task == 'mmlu' or args.task == 'tq':
             all_data = MCDataset(args, subject)
         else:
             raise ValueError(f'Specify the wrong task: {args.task}')
+        print(f'cnt: {idx}, subject: {subject}, batch size: {engine.batch_size}')
         engine.load_data(all_data)
         res, score = engine.get_res()
         accuracy[subject] = score
