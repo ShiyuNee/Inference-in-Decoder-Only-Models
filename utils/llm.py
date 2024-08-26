@@ -77,17 +77,18 @@ class Generater:
             hidden_modes = self.args.hidden_idx_mode.split(',')
             all_modes_hidden_state = [{} for _ in range(bt_size)]
             for mode in hidden_modes:
-                if mode == 'ans':
+                if mode == 'ans': #不支持提取answer部分第一个token的hidden state
                     raise ValueError('Do not support hidden_mode=ans for free-form qa')
                 if mode == 'every': # 得到ans token在每一层的概率, 每一层的top-1 token
                     probs_for_generated_tokens, tokens_for_each_layer = self.get_token_and_prob_for_each_pos(outs, bt_size, end_idx) #(bt_size, layers, ans_len)
                 else:
                     pos_idx = self.get_need_idx_for_generation(top_scores, end_idx, mode)
-                    hidden_states = self.get_hidden_states_for_given_pos(outs, bt_size, pos_idx)
+                    hidden_states = self.get_hidden_states_for_given_pos(outs, bt_size, pos_idx, mode)
                     for bt in range(bt_size):
                         all_modes_hidden_state[bt][mode] = hidden_states[bt]
+
         for bt in range(bt_size):
-            print(f'ans: {self.tokenizer.decode(new_ids[bt][:end_idx[bt]])}')
+            # print(f'ans: {self.tokenizer.decode(new_ids[bt][:end_idx[bt]])}')
             temp_res = ({
                 'Res': self.tokenizer.decode(new_ids[bt][:end_idx[bt]]).strip(),
                 'Log_p':{
@@ -122,10 +123,9 @@ class Generater:
         end_idx = self.get_generation_end(new_ids)
         # print(f'text: {self.tokenizer.batch_decode(new_ids, skip_sepcial_tokens=True)}')
         # print(f'end idx: {end_idx}')
-        # 找到choice出现位置,以及出现时的token id
+        # 找到choice出现位置,以及对应的token id
         ans_token_idx, choices_idx = self.get_choice_idx(outs, inputs, end_idx)
         print(f'answer idx: {ans_token_idx}')
-        # print(self.tokenizer.batch_decode(seqs[:, inputs.shape[-1]:], skip_sepcial_tokens=True))
         need_scores = []
         bt_size = inputs.shape[0]
         for bt in range(bt_size):
@@ -135,6 +135,7 @@ class Generater:
         next_token_probs = probs[:, choices_idx] # batch_size, 8
         entropy = torch.sum(-(probs * torch.log2(probs)), dim=-1) # batch_size, 8
         max_scores, max_indices = torch.max(next_token_probs, dim=-1) # 生成token
+        # 得到所有token对应的prob,为提取min-prob token对应hidden state作准备
         _, top_scores, _, _ = self.get_generated_tokens_probs_entropy(scores, new_ids, bt_size)
 
         if self.args.attn_weights: 
@@ -148,10 +149,10 @@ class Generater:
                 if mode == 'every': # 得到ans token在每一层的概率, 每一层的top-1 token
                     raise ValueError('Do not need to specify hidden_idx_mode=every for multi-choice qa')
                 elif mode == 'ans': # 取response中ans的first token
-                    hidden_states = self.get_hidden_states_for_given_pos(outs, bt_size, ans_token_idx)
+                    hidden_states = self.get_hidden_states_for_given_pos(outs, bt_size, ans_token_idx, mode)
                 else:
                     pos_idx = self.get_need_idx_for_generation(top_scores, end_idx, mode)
-                    hidden_states = self.get_hidden_states_for_given_pos(outs, bt_size, pos_idx)
+                    hidden_states = self.get_hidden_states_for_given_pos(outs, bt_size, pos_idx, mode)
                 for bt in range(bt_size):
                     all_modes_hidden_state[bt][mode] = hidden_states[bt]
             
@@ -162,6 +163,7 @@ class Generater:
                     'token probs': next_token_probs[bt].tolist(),# choices prob
                     'token_entropy': float(entropy[bt]), # real entropy
                 },
+                'end_idx': end_idx[bt]
             }
             if self.args.hidden_states:
                 temp_res['hidden_states'] = all_modes_hidden_state[bt]
@@ -193,6 +195,7 @@ class Generater:
                         res_sample['question'] = self.data.format_example(all_data, idx, include_answer=False)
                         res_sample['has_answer'] = res_sample['Res'] == all_data[idx][-1]
                         res_sample['reference'] = all_data[idx][-1]
+                        res_sample['end_idx'] = self.outputs[begin]['end_idx']
                     else:
                         res_sample['question'] = all_data[idx]['question']
                         res_sample['has_answer'] = has_answer(all_data[idx]['reference'], res_sample['Res'])
@@ -214,7 +217,7 @@ class Generater:
         print(f'accuracy: {acc / begin}')
         return res, acc / begin
     
-    def get_hidden_states_for_given_pos(self, outs, bt_size, need_idx):
+    def get_hidden_states_for_given_pos(self, outs, bt_size, need_idx, mode='first'):
         """
         得到指定位置token生成时每一层的hidden_state
         Input:
@@ -249,11 +252,11 @@ class Generater:
                     for item in temp_idx: # 所有需要考虑的tokens
                         temp_res.append(outs['hidden_states'][item][layer][bt][-1])
                     temp_res = torch.stack(temp_res)
-                    if self.args.hidden_idx_mode == 'avg':
+                    if mode == 'avg':
                         res[bt].append(torch.mean(temp_res, dim=0).to(torch.float16).tolist())
-                    elif self.args.hidden_idx_mode == 'dim_min': # hidden state不同维度取min
+                    elif mode == 'dim_min': # hidden state不同维度取min
                         res[bt].append(torch.min(temp_res, dim=0)[0].to(torch.float16).tolist())
-                    elif self.args.hidden_idx_mode == 'dim_max':
+                    elif mode == 'dim_max':
                         res[bt].append(torch.max(temp_res, dim=0)[0].to(torch.float16).tolist())
         return res
 
@@ -288,7 +291,12 @@ class Generater:
         new_token_ids = seqs[:, input_len:]
 
         choices_idx = self.tokenizer(choices)['input_ids']
-        choices_idx = [item[1] if len(item) == 2 else item[2] for item in choices_idx] # _A, A等的token_id
+        if self.args.model_name == 'llama2-7b-chat':
+            # ['<s>', '_A'],  ['<s>', '(', 'A', ')']
+            choices_idx = [item[1] if len(item) == 2 else item[2] for item in choices_idx] # _A, A等的token_id
+            #['_A'], ['(A', ')']
+        elif self.args.model_name == 'llama3-8b-instruct':
+            choices_idx = [item[0] for item in choices_idx]
         for bt in range(batch_size): # 遍历batch
             for idx in range(end_idx[bt]): # 一个序列中token
                 token_id = new_token_ids[bt][idx]
@@ -360,7 +368,7 @@ class Generater:
             if len(eos_idx) == 0: # 没有eos_token
                 end_idx.append(text_len)
             else:
-                end_idx.append(eos_idx[0]) # eos_token出现的第一个位置
+                end_idx.append(eos_idx[0].item()) # eos_token出现的第一个位置
         return end_idx
     
     def get_generated_tokens_probs_entropy(self, scores, generated_tokens, bt_size):
