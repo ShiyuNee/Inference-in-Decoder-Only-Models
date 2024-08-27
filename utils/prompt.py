@@ -12,7 +12,7 @@ prompt_dict = {
         'tail': '\nAnswer: ',
     },
     'qa_evidence': {
-        'none': 'Answer the following question based on your internal knowledge with one or few words and explain why you give this answer.\nQuestion: {question}{paras}{prediction}',
+        'none': 'Answer the following question based on your internal knowledge with one or few words and explain why you give this answer briefly.\nQuestion: {question}{paras}{prediction}',
         'ra': 'Given the following information: \n{paras}\nAnswer the following question based on the given information or your internal knowledge with one or few words and explain why you give this answer.\nQuestion: {question}{prediction}',
         'tail': '\nAnswer: ',
     },

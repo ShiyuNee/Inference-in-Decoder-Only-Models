@@ -70,6 +70,7 @@ class Generater:
         new_ids = seqs[:, input_len:] # batch_size, new_seq_len
         # print(f'text: {self.tokenizer.batch_decode(new_ids, skip_sepcial_tokens=True)}')
         end_idx = self.get_generation_end(new_ids)
+        print(f'end_idx: {end_idx}')
         # 存储概率最大的token_id, 存储对应的probs, 存储seqs对应probs. 当且仅当使用greedy search时, top_indices=outs['sequence']
         top_indices, top_scores, ans_scores, ans_entropy = self.get_generated_tokens_probs_entropy(scores, new_ids, bt_size)
 
@@ -125,7 +126,7 @@ class Generater:
         # print(f'end idx: {end_idx}')
         # 找到choice出现位置,以及对应的token id
         ans_token_idx, choices_idx = self.get_choice_idx(outs, inputs, end_idx)
-        print(f'answer idx: {ans_token_idx}')
+        # print(f'answer idx: {ans_token_idx}')
         need_scores = []
         bt_size = inputs.shape[0]
         for bt in range(bt_size):
@@ -233,15 +234,16 @@ class Generater:
         if self.args.need_layers == 'last':
             need_layers = [-1]
         elif self.args.need_layers == 'all':
-            need_layers = range(len(outs['hidden_states'][temp_idx]))
+            need_layers = range(len(outs['hidden_states'][0]))
         elif self.args.need_layers == 'mid':
-            need_layers = [int(len(outs['hidden_states']) / 2)]
+            need_layers = [int(len(outs['hidden_states'][0]) / 2)]
         else:
             raise ValueError('Specify the wrong need_layers')
         
         res = [[] for _ in range(bt_size)]
         for bt in range(bt_size): # 遍历sample
             temp_idx = need_idx[bt] # 当前sample需要考虑的token的idx
+            # print(f'need layers: {need_layers}')
             if type(temp_idx) != list: # 只需要取一个token
                 for layer in need_layers: # 该token的每一层
                     hidden_states = outs['hidden_states'][temp_idx][layer][bt][-1] # bs, generated_len(input_len or 1), hidden_size
