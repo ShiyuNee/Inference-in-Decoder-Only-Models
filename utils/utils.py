@@ -137,8 +137,6 @@ def compute_has_answer(ref_data, qa_data):
         qa_data[idx]['has_answer'] = has_answer(ref_data[idx]['reference'], qa_data[idx]['Res'])
     return qa_data
 
-
-
 def _normalize_answer(s):
     def remove_articles(text):
         return re.sub(r"\b(a|an|the)\b", " ", text)

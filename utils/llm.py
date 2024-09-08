@@ -126,7 +126,7 @@ class Generater:
         # print(f'end idx: {end_idx}')
         # 找到choice出现位置,以及对应的token id
         ans_token_idx, choices_idx = self.get_choice_idx(outs, inputs, end_idx)
-        # print(f'answer idx: {ans_token_idx}')
+        print(f'answer idx: {ans_token_idx}')
         need_scores = []
         bt_size = inputs.shape[0]
         for bt in range(bt_size):
@@ -338,7 +338,7 @@ class Generater:
     
     def get_token_and_prob_for_each_pos(self, outs, bt_size, end_idx):
         """
-        得到每个位置每一层top-1 token, 最终生成的token在每一层的概率
+        得到每个位置每一层top-1 token(early exit), 最终生成的token在每一层的概率
         """
         probs_for_generated_token = [[] for _ in range(bt_size)] # 最终生成的token在每一层对应的概率
         tokens_for_each_pos = [[] for _ in range(bt_size)] #

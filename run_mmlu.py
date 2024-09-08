@@ -33,7 +33,7 @@ def get_args():
     parser.add_argument('--source', type=str, default='data/source/nq.json')
     parser.add_argument('--response', type=str, default='')
     parser.add_argument('--usechat', action='store_true')
-    parser.add_argument('--type', type=str, choices=['qa', 'qa_evidence', 'qa_gene', 'qa_compare', 'mc_qa'], default='qa')
+    parser.add_argument('--type', type=str, choices=['qa', 'qa_evidence', 'qa_gene', 'qa_compare', 'mc_qa', 'mc_qa_evidence'], default='qa')
     parser.add_argument('--ra', type=str, default="none", choices=ra_dict.keys())
     parser.add_argument('--outfile', type=str, default='data/qa/chatgpt-nq-none.json')   
     parser.add_argument('--idx', type=str, default="")   
@@ -63,6 +63,7 @@ def main():
     # engine = ParallelGenerater(args)
     engine = Generater(args)
     subjects = sorted([f.split("_test.csv")[0] for f in os.listdir(os.path.join(args.source, "test")) if "_test.csv" in f])
+    print(f'subjects: {subjects}')
     accuracy = {}
     total_acc = 0
     if not os.path.exists(args.outfile):

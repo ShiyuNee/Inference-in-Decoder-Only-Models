@@ -5,9 +5,24 @@ prompt_dict = {
         'ra': 'Given the following information: \n{paras}\nAnswer the following question based on the given information or your internal knowledge with one or few words.\nQuestion: {question}{prediction}',
         'tail': '\nAnswer: ',
     },
+    'qa_cot': {
+        'none': 'Answer the question by briefly explaining your reasoning with one or few sentences, then provide the final answer.\nQuestion: {question}{paras}{prediction}',
+        'ra': '',
+        'tail': '\nAnswer: ',
+    },
+    'qa_more': {
+        'none': 'Generate 10 possible answers for the following question, each separated by a semicolon. These 10 answers must be different, and your response should be as concise as possible, with no irrelevant words beyond the answers.\nQuestion: {question}{paras}{prediction}',
+        'ra': 'Given the following information: \n{paras}\nAnswer the following question based on the given information or your internal knowledge with one or few words.\nQuestion: {question}{prediction}',
+        'tail': '\nAnswer: ',
+    },
     'mc_qa': {
-        'none': 'The following are multiple choice questions (with answers) {subject}. Select the correct answer without any irrelevant words. Do not include conversational words and do not provide any explanation.\n\n{question}{paras}{prediction}',
+        'none': 'The following are multiple choice questions (with answers){subject}. Select the correct answer without any irrelevant words. Do not include conversational words and do not provide any explanation.\n\n{question}{paras}{prediction}',
         # 'none': 'The following are multiple choice questions (with answers) {subject}.\n\n{question}{paras}{prediction}',
+        'ra': 'Given the following information: \n{paras}\nAnswer the following question based on the given information or your internal knowledge with one or few words.\nQuestion: {question}{prediction}',
+        'tail': '\nAnswer: ',
+    },
+    'mc_qa_evidence': {
+        'none': 'The following are multiple choice questions (with answers){subject}. Select the correct answer without any irrelevant words and explain why you choose this answer briefly.\n\n{question}{paras}{prediction}',
         'ra': 'Given the following information: \n{paras}\nAnswer the following question based on the given information or your internal knowledge with one or few words.\nQuestion: {question}{prediction}',
         'tail': '\nAnswer: ',
     },
@@ -15,51 +30,6 @@ prompt_dict = {
         'none': 'Answer the following question based on your internal knowledge with one or few words and explain why you give this answer briefly.\nQuestion: {question}{paras}{prediction}',
         'ra': 'Given the following information: \n{paras}\nAnswer the following question based on the given information or your internal knowledge with one or few words and explain why you give this answer.\nQuestion: {question}{prediction}',
         'tail': '\nAnswer: ',
-    },
-    'qa_cot': {
-        'none': 'Answer the following question based on your internal knowledge and let\'s think step by step.\n 1.Answer the question with one or few words.\nQuestion: {question}{paras}{prediction}',
-        'ra': 'Given the following information: \n{paras}\nAnswer the following question based on the given information or your internal knowledge with one or few words.\nQuestion: {question}{prediction}',
-        'tail': '\nAnswer: ',
-    },
-    'prior': {
-        'none': 'Are you sure to accurately answer the following question based on your internal knowledge, if yes, you should give a short answer with one or few words, if no, you should answer \"Unknown\"\nQuestion: {question}{paras}{prediction}',
-        'ra': 'Given the following information: \n{paras}\nCan you answer the following question based on the given information or your internal knowledge, if yes, you should give a short answer with one or few words, if no, you should answer \"Unknown\".\nQuestion: {question}{prediction}',
-        'tail': '\nAnswer: ',
-    },
-    'post': {
-        'none': 'If you are sure the answer is accurate and correct, please say \"certain\". If you are not confident with the answer, please say \"uncertain\".\nQuestion: {question}{paras}\nAnswer: {prediction}',
-        'ra': 'Given the following information: \n{paras}\nIf you are sure the answer is accurate and correct, please say \"certain\". If you are not confident with the answer, please say \"uncertain\".\nQuestion: {question}\nAnswer: {prediction}',
-        'tail': '\nJudgement is:',
-    },
-    'post_evidence': {
-        'none': 'Give some evidence about why the answer may be right.\nQuestion: {question}{paras}\nAnswer: {prediction}',
-        'ra': 'Given the following information: \n{paras}\nCan you judge the if the following answer about the question is correct based on the given information or your internal knowledge, if yes, you should answer True or False, if no, you should answer \"Unknown\".\nQuestion: {question}\nAnswer: {prediction}',
-        'tail': '\nJudgement is: ',
-    },
-    'post_evidence_judge': {
-        'none': 'If you are sure the answer is accurate and correct, please say \"certain\". If you are not confident with the answer, please say \"uncertain\".\nQuestion: {question}{paras}\nAnswer: {prediction}\nEvidence:{revidence}',
-        'ra': 'Given the following information: \n{paras}\nIf you are sure the answer is accurate and correct, please say \"certain\". If you are not confident with the answer, please say \"uncertain\".\nQuestion: {question}\nAnswer: {prediction}',
-        'tail': '\nJudgement is: ',
-    },
-    'certain_prior': {
-        'none': 'Answer the following question based on your internal knowledge with one or few words. If you are sure the answer is accurate and correct, please say \"certain\" after the answer. If you are not confident with the answer, please say \"uncertain\".\nQuestion: {question}{paras}{prediction}',
-        'ra': 'Given the following information: \n{paras}\nAnswer the following question based on the given information or your internal knowledge with one or few words. If you are sure the answer is accurate and correct, please say \"certain\" after the answer. If you are not confident with the answer, please say \"uncertain\".\nQuestion: {question}{prediction}',
-        'tail': '\nAnswer: ',
-    },
-    'prior_evidence': {
-        'none': 'Answer the following question based on your internal knowledge with one or few words and explain why you give this answer. If you are sure the answer is accurate and correct, please say \"certain\" after the answer. If you are not confident with the answer, please say \"uncertain\". You will be punished if the answer is not right but you say \"certain\".\nQuestion: {question}{paras}{prediction}',
-        'ra': 'Answer the following question based on the given information or your internal knowledge with one or few words and explain why you give this answer. If you are sure the answer is accurate and correct, please say \"certain\" after the answer. If you are not confident with the answer, please say \"uncertain\". You will be punished if the answer is not right but you say \"certain\".\nGiven the following information: \n{paras}\nQuestion: {question}{prediction}',
-        'tail': '\nAnswer: ',
-    },
-    'prior_cot': {
-        'none': 'Answer the following question based on your internal knowledge and let\'s think step by step.\n 1.Answer the question with one or few words.\n 2.If you are sure the answer is accurate and correct, please say \"certain\" after the answer. If you are not confident with the answer, please say \"uncertain\".\nQuestion: {question}{paras}{prediction}',
-        'ra': 'Given the following information: \n{paras}\nGenerate a short document that helps answer the following question based on the given information or your internal knowledge and answer the question with one or few words. If you are sure the answer is accurate and correct, please say \"certain\" after the answer. If you are not confident with the answer, please say \"uncertain\".\nQuestion: {question}{prediction}',
-        'tail': '\nAnswer: ',
-    },
-    'paraphrase': {
-        'none': 'Paraphrase the answer and you must keep the meaning.\nQuestion: {question}{paras}\nAnswer: {prediction}',
-        'ra': 'Given the following information: \n{paras}\nIf you are sure the answer is accurate and correct, please say \"certain\". If you are not confident with the answer, please say \"uncertain\".\nQuestion: {question}\nAnswer: {prediction}',
-        'tail': '\nJudgement is: ',
     },
 }
 
@@ -92,7 +62,8 @@ def get_prompt(sample, args):
     tail = prompt_dict[args.type]['tail'] if not args.usechat else ""
     prediction = sample['Res'] if 'post' in args.type else ""
     # mmlu基础模板里带subject
-    if args.task == 'mmlu':
+    # print(args.task)
+    if args.task == 'mmlu' or args.task == 'tq':
         prompt = prompt.format(question=sample[ref_key], paras=paras, prediction=prediction, subject=args.subject) + tail
     else:
         prompt = prompt.format(question=sample[ref_key], paras=paras, prediction=prediction) + tail
