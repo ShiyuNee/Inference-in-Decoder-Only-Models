@@ -80,6 +80,11 @@ class MCDataset(Dataset):
             self.prompts.append(prompt)
         for item in self.prompts[:5]:
             print(f'example: {item}')
+        prompt_len = []
+        for item in self.prompts:
+            prompt_len.append(len(item.split(' ')))
+        self.avg_len = sum(prompt_len)/len(prompt_len)
+        self.max_len = max(prompt_len)
 
     def __len__(self):
         return len(self.prompts)

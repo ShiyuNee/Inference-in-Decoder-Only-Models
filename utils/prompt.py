@@ -21,6 +21,12 @@ prompt_dict = {
         'ra': 'Given the following information: \n{paras}\nAnswer the following question based on the given information or your internal knowledge with one or few words.\nQuestion: {question}{prediction}',
         'tail': '\nAnswer: ',
     },
+    'mc_qa_cot': {
+        'none': 'The following are multiple choice questions (with answers){subject}. Briefly explain your reasoning with one or few sentences and choose the correct answer.\n\n{question}{paras}{prediction}',
+        # 'none': 'The following are multiple choice questions (with answers) {subject}.\n\n{question}{paras}{prediction}',
+        'ra': 'Given the following information: \n{paras}\nAnswer the following question based on the given information or your internal knowledge with one or few words.\nQuestion: {question}{prediction}',
+        'tail': '\nAnswer: ',
+    },
     'mc_qa_evidence': {
         'none': 'The following are multiple choice questions (with answers){subject}. Select the correct answer without any irrelevant words and explain why you choose this answer briefly.\n\n{question}{paras}{prediction}',
         'ra': 'Given the following information: \n{paras}\nAnswer the following question based on the given information or your internal knowledge with one or few words.\nQuestion: {question}{prediction}',

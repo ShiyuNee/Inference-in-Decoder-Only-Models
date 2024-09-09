@@ -33,7 +33,7 @@ def get_args():
     parser.add_argument('--source', type=str, default='data/source/nq.json')
     parser.add_argument('--response', type=str, default='')
     parser.add_argument('--usechat', action='store_true')
-    parser.add_argument('--type', type=str, choices=['qa', 'qa_evidence', 'qa_gene', 'qa_compare', 'mc_qa', 'mc_qa_evidence'], default='qa')
+    parser.add_argument('--type', type=str, choices=['mc_qa', 'mc_qa_evidence', 'mc_qa_cot'], default='qa')
     parser.add_argument('--ra', type=str, default="none", choices=ra_dict.keys())
     parser.add_argument('--outfile', type=str, default='data/qa/chatgpt-nq-none.json')   
     parser.add_argument('--idx', type=str, default="")   
@@ -73,6 +73,11 @@ def main():
         subject = subjects[idx]
         if args.task == 'mmlu' or args.task == 'tq':
             all_data = MCDataset(args, subject)
+            # 7200 for llama3-8b-instruct, 3000 for llama2-chat-7b
+            if args.model_name == 'llama3-8b-instruct':
+                engine.batch_size = int(7200 / (all_data.avg_len + args.max_new_tokens)) 
+            elif args.model_name == 'llama2-7b-chat':
+                engine.batch_size = int(3000 / (all_data.avg_len + args.max_new_tokens)) # llama2运行时更耗显存
         else:
             raise ValueError(f'Specify the wrong task: {args.task}')
         print(f'cnt: {idx}, subject: {subject}, batch size: {engine.batch_size}')

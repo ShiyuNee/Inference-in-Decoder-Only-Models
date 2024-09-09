@@ -117,6 +117,8 @@ class Generater:
             - 
         """
         choices = ['A', 'B', 'C', 'D', 'A', 'B', 'C', 'D'] # token可能有A和(A, 长度为8是为了对应
+        if self.args.model_name == 'llama3-8b-instruct':
+            choices = ['A', 'B', 'C', 'D', 'A', 'B', 'C', 'D', 'A', 'B', 'C', 'D']
         input_len = inputs.shape[-1]
         seqs = outs['sequences'] # batch_size, seq_len, 存储的是token_id
         scores = outs['scores'] # tuple of tensor (generated_len) -> (batch_size, vocab_size)
@@ -287,7 +289,10 @@ class Generater:
         找到每个样本中choice出现的位置
         """
         batch_size, input_len = inputs.shape
+        # llama3中, 'A'和' A'不是一个表示
         choices = ['A', 'B', 'C', 'D', '(A)', '(B)', '(C)', '(D)']
+        if self.args.model_name == 'llama3-8b-instruct':
+            choices = ['A', 'B', 'C', 'D', '(A)', '(B)', '(C)', '(D)', ' A', ' B', ' C', ' D']
         out_idx = [0 for _ in range(batch_size)] # 没找到就默认为第一个token
         seqs = outs['sequences'] # batch_size, seq_len, 存储的是token_id
         new_token_ids = seqs[:, input_len:]
@@ -304,7 +309,8 @@ class Generater:
                 token_id = new_token_ids[bt][idx]
                 if token_id in choices_idx: # 第一个出现选项的位置
                     out_idx[bt] = idx
-                    break
+                    if 'cot' not in self.args.type:
+                        break
         return out_idx, choices_idx      
 
     def get_need_idx_for_generation(self, probs, end_idx, mode):
