@@ -1,7 +1,7 @@
 import time
 import os
 from .utils import deal_answer, deal_judge, deal_post, str2paras, deal_judge_new, has_answer
-from transformers import AutoTokenizer, LlamaForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 from torch.utils.data import DataLoader, Dataset
 import torch.nn as nn
@@ -11,7 +11,7 @@ from tqdm import tqdm
 class Generater:
     def __init__(self, args):
         self.args = args
-        self.model = LlamaForCausalLM.from_pretrained(args.model_path)
+        self.model = AutoModelForCausalLM.from_pretrained(args.model_path)
         self.tokenizer = AutoTokenizer.from_pretrained(args.model_path)
         self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
         self.tokenizer.padding_side = "left"
@@ -19,7 +19,8 @@ class Generater:
         self.outputs = []
         self.eos_id_dict = {
             'llama2-7b-chat': self.tokenizer.eos_token_id,
-            'llama3-8b-instruct': self.tokenizer.convert_tokens_to_ids(['<|eot_id|>'])[0]
+            'llama3-8b-instruct': self.tokenizer.convert_tokens_to_ids(['<|eot_id|>'])[0],
+            'qwen2-7b-instruct': self.tokenizer.eos_token_id
         }
         print('load generater finish.')
 
@@ -117,7 +118,7 @@ class Generater:
             - 
         """
         choices = ['A', 'B', 'C', 'D', 'A', 'B', 'C', 'D'] # token可能有A和(A, 长度为8是为了对应
-        if self.args.model_name == 'llama3-8b-instruct':
+        if self.args.model_name in ['llama3-8b-instruct', 'qwen2-7b-instruct']:
             choices = ['A', 'B', 'C', 'D', 'A', 'B', 'C', 'D', 'A', 'B', 'C', 'D']
         input_len = inputs.shape[-1]
         seqs = outs['sequences'] # batch_size, seq_len, 存储的是token_id
@@ -125,7 +126,7 @@ class Generater:
         new_ids = seqs[:, input_len:] # batch_size, new_seq_len
         end_idx = self.get_generation_end(new_ids)
         # print(f'text: {self.tokenizer.batch_decode(new_ids, skip_sepcial_tokens=True)}')
-        # print(f'end idx: {end_idx}')
+        print(f'end idx: {end_idx}')
         # 找到choice出现位置,以及对应的token id
         ans_token_idx, choices_idx = self.get_choice_idx(outs, inputs, end_idx)
         print(f'answer idx: {ans_token_idx}')
@@ -291,7 +292,7 @@ class Generater:
         batch_size, input_len = inputs.shape
         # llama3中, 'A'和' A'不是一个表示
         choices = ['A', 'B', 'C', 'D', '(A)', '(B)', '(C)', '(D)']
-        if self.args.model_name == 'llama3-8b-instruct':
+        if self.args.model_name in ['llama3-8b-instruct', 'qwen2-7b-instruct']:
             choices = ['A', 'B', 'C', 'D', '(A)', '(B)', '(C)', '(D)', ' A', ' B', ' C', ' D']
         out_idx = [0 for _ in range(batch_size)] # 没找到就默认为第一个token
         seqs = outs['sequences'] # batch_size, seq_len, 存储的是token_id
@@ -302,7 +303,7 @@ class Generater:
             # ['<s>', '_A'],  ['<s>', '(', 'A', ')']
             choices_idx = [item[1] if len(item) == 2 else item[2] for item in choices_idx] # _A, A等的token_id
             #['_A'], ['(A', ')']
-        elif self.args.model_name == 'llama3-8b-instruct':
+        elif self.args.model_name in ['llama3-8b-instruct', 'qwen2-7b-instruct']:
             choices_idx = [item[0] for item in choices_idx]
         for bt in range(batch_size): # 遍历batch
             for idx in range(end_idx[bt]): # 一个序列中token

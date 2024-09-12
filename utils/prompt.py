@@ -47,6 +47,10 @@ model_template_dict = {
     'llama3-8b-instruct':{
         'prefix': '<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\nYou are a helpful AI assistant for answering factual questions<|eot_id|><|start_header_id|>user<|end_header_id|>\n\n',
         'end': "<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
+    },
+    'qwen2-7b-instruct':{
+        'prefix': '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n<|im_start|>user\n',
+        'end': '<|im_end|>\n<|im_start|>assistant'
     }
 }
 

@@ -75,8 +75,8 @@ def main():
             all_data = MCDataset(args, subject)
             # 7200 for llama3-8b-instruct, 3000 for llama2-chat-7b
             if args.model_name == 'llama3-8b-instruct':
-                engine.batch_size = int(7200 / (all_data.avg_len + args.max_new_tokens)) 
-            elif args.model_name == 'llama2-7b-chat':
+                engine.batch_size = int(7000 / (all_data.avg_len + args.max_new_tokens)) 
+            elif args.model_name in ['llama2-7b-chat', 'qwen2-7b-instruct']:
                 engine.batch_size = int(3000 / (all_data.avg_len + args.max_new_tokens)) # llama2运行时更耗显存
         else:
             raise ValueError(f'Specify the wrong task: {args.task}')
