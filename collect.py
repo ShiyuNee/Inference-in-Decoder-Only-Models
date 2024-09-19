@@ -29,7 +29,7 @@ def compute_all_files(dir):
             ref_prob.append(sample['Log_p']['token probs'][choice_idx[sample['reference']]])
         print(sum(temp_acc) / len(temp_acc))
     print(f'count: {len(acc_list)}')
-    print(f'avg acc； {sum(acc_list)/len(acc_list)}')
+    print(f'avg acc: {sum(acc_list)/len(acc_list)}')
     print(f'avg entropy: {sum(entro_list)/len(entro_list)}')
     print(f'avg token prob: {sum(token_prob) / len(token_prob)}')
     print(f'avg ref prob: {sum(ref_prob) / len(ref_prob)}')
@@ -49,6 +49,9 @@ def compute_ece(acc_list, prob_list):
         print(f'count: {len(acc_bin[idx])}')
         print(f'avg acc: {sum(acc_bin[idx])/len(acc_bin[idx])}')
         print(f'avg prob: {sum(prob_bin[idx])/len(prob_bin[idx])}')
+
+def extract_answer_verification(cot_data, extracted_data):
+    pass
 
 
 acc, probs = compute_all_files('./res/mmlu/zero-shot')

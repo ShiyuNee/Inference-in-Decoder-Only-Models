@@ -159,10 +159,11 @@ class Generater:
                     hidden_states = self.get_hidden_states_for_given_pos(outs, bt_size, pos_idx, mode)
                 for bt in range(bt_size):
                     all_modes_hidden_state[bt][mode] = hidden_states[bt]
-            
+        
         for bt in range(bt_size):
             temp_res = {
                 'Res': choices[max_indices[bt]],
+                'Full_res': self.tokenizer.decode(new_ids[bt][:end_idx[bt]]).strip(),
                 'Log_p':{
                     'token probs': next_token_probs[bt].tolist(),# choices prob
                     'token_entropy': float(entropy[bt]), # real entropy
@@ -200,6 +201,7 @@ class Generater:
                         res_sample['has_answer'] = res_sample['Res'] == all_data[idx][-1]
                         res_sample['reference'] = all_data[idx][-1]
                         res_sample['end_idx'] = self.outputs[begin]['end_idx']
+                        res_sample['Full_res'] = self.outputs[begin]['Full_res']
                     else:
                         res_sample['question'] = all_data[idx]['question']
                         res_sample['has_answer'] = has_answer(all_data[idx]['reference'], res_sample['Res'])
@@ -310,8 +312,7 @@ class Generater:
                 token_id = new_token_ids[bt][idx]
                 if token_id in choices_idx: # 第一个出现选项的位置
                     out_idx[bt] = idx
-                    if 'cot' not in self.args.type:
-                        break
+                    break
         return out_idx, choices_idx      
 
     def get_need_idx_for_generation(self, probs, end_idx, mode):
