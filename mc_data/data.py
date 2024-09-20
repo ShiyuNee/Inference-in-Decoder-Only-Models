@@ -109,16 +109,26 @@ def convert_qa_to_generated_choices():
     print(cnt/len(gene_data))
     write_2d_list_to_csv(f'../{dataset}/{dataset}-{mode}-gene-choice_test.csv', csv_data)
 
+def convert_qa_to_gene_none_data(path): 
+    choice_idx = {'A':0, 'B':1, 'C':2, 'D':3}
+    data = []  
+    res = []
+    with open(path, mode='r') as file:
+        csv_reader = csv.reader(file)
+        # 遍历并打印每一行
+        for row in csv_reader:
+            data.append(row)
 
-
-def get_choices_for_diff_mode(mode):
-    """
-    为不同mode产生不同类型的选项
-    """
-    pass
+    for idx in range(len(data)):
+        gene_choice = [data[idx][1 + item] for item in range(4) if item != choice_idx[data[idx][-1]]] 
+        new_data = [data[idx][0]] + gene_choice + ["None of above", 'D']
+        res.append(new_data)
+    out_path = path.replace('gene-choice', 'gene-none')
+    write_2d_list_to_csv(out_path, res)
 
 if __name__ == '__main__':
-    pass
+    path = '/Users/shiyuni/Documents/research/project/datasets/hq/hq-test-gene-choice_test.csv'
+    convert_qa_to_gene_none_data(path)
 
 
 
