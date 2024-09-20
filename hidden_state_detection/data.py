@@ -8,10 +8,6 @@ from collect import read_json, write_jsonl
 import json
 import os
 import random
-# tokenizer = AutoTokenizer.from_pretrained("../llama2-7B-chat")
-# lm_head = nn.Linear(4096, 32000, bias=False)
-# dic = {'weight': torch.load('./models/llama2-7B-chat_lm_head.pt')}
-# lm_head.load_state_dict(dic)
 
 class HiddenData:
     def __init__(self, data, labels):
@@ -23,32 +19,6 @@ class HiddenData:
 
     def __getitem__(self, idx):
         return self.data[idx], self.labels[idx]
-    
-def split_data(data_path, label_path, need_layers):
-    # 将mmlu后面的任务作为ood test set，前面的任务切分为train和test set
-    origin_data = torch.load(data_path)
-    all_data = torch.load(data_path)[:, need_layers, :] if len(origin_data.shape) == 3 else torch.load(data_path)
-    labels = torch.load(label_path) # true/false
-    new_labels = torch.zeros((len(labels), 2))
-    for idx in range(len(labels)):
-        new_labels[idx][int(labels[idx])] = 1
-    with open('ood.json') as file:
-        ood_idx = json.load(file)
-    with open('train.json') as file:
-        train_idx = json.load(file)
-    with open('test.json') as file:
-        test_idx = json.load(file)
-    train_data = all_data[train_idx]
-    train_labels = new_labels[train_idx]
-    test_data = all_data[test_idx]
-    test_labels = new_labels[test_idx]
-    ood_data = all_data[ood_idx]
-    ood_labels = new_labels[ood_idx]
-    print(f'train data: {train_data.shape}')
-    print(f'train labels: {train_labels.shape}')
-    print(f'test data: {test_data.shape}')
-    print(f'ood data: {ood_data.shape}')
-    return train_data, train_labels, test_data, test_labels, ood_data, ood_labels
 
 def split_data_for_generation(data_path, label_path, need_layers):
     data = {
@@ -113,67 +83,6 @@ def split_data_for_mmlu(data_path, label_path, need_layers):
     print(f'dev data: {dev_data.shape}')
     print(f'test data: {test_data.shape}')
     return train_data, train_label, dev_data, dev_label, test_data, test_label
-
-def get_contrastive_layer(data):
-    # print(mature_logits.shape)
-    # print(candidate_logits.shape)
-    # Pick the less like layer to contrast with
-    # 1. Stacking all premature_layers into a new dimension
-    # 2. Calculate the softmax values for mature_layer and all premature_layers
-    new_data = []
-    logits = lm_head(data)
-    softmax_mature_layer = nn.Softmax(dim=-1)(logits[:, -1, :])  # shape: (batch_size, num_features)
-    # print(softmax_mature_layer.shape)
-    softmax_premature_layers = nn.Softmax(dim=-1)(logits[:, :32, :])  # shape: (batch_size, num_premature_layers, num_features)
-    # print(softmax_premature_layers.shape)
-
-    # 3. Calculate M, the average distribution
-    M = 0.5 * (softmax_mature_layer[:, None, :] + softmax_premature_layers)  # shape: (batch_size, num_premature_layers, num_features)
-
-    # 4. Calculate log-softmax for the KL divergence
-    log_softmax_mature_layer = F.log_softmax(logits[:, -1, :], dim=-1)  # shape: (batch_size, num_features)
-    log_softmax_premature_layers = F.log_softmax(logits[:, :32, :], dim=-1) # shape: (batch_size, num_premature_layers, num_features)
-
-    # 5. Calculate the KL divergences and then the JS divergences
-    kl1 = F.kl_div(log_softmax_mature_layer[:, None, :], M, reduction='none').mean(-1)  # shape: (batch_size, num_premature_layers)
-    kl2 = F.kl_div(log_softmax_premature_layers, M, reduction='none').mean(-1)  # shape: (batch_size, num_premature_layers)
-    js_divs = 0.5 * (kl1 + kl2)  # shape: (num_premature_layers, batch_size)
-    js_divs = js_divs
-    # print(js_divs.shape)
-    # 6. Reduce the batchmean
-    # js_divs = js_divs.mean(-1)  # shape: (num_premature_layers,)
-    js_divs = torch.argmax(js_divs, dim=1).tolist()
-    for idx in range(len(js_divs)):
-        new_data.append([data[idx][-1].tolist(), data[idx][int(js_divs[idx])].tolist()])
-    return torch.tensor(new_data)
-
-def prepare_data(path):
-    data = read_json(path)
-    modes = ['first', 'last', 'min', 'avg', 'ans', 'dim_max', 'dim_min']
-    mode = ""
-    for item in modes:
-        if item in path:
-            mode = item
-    
-    out_data_path = '/'.join(path.split('/')[:-1]) + '/' + mode + '_data.pt'
-    out_label_path = '/'.join(path.split('/')[:-1]) + '/' + mode + '_label.pt'
-    print(out_data_path)
-    hidden_data = []
-    labels = []
-    for item in data:
-        hidden_data.append(item['hidden_states'])
-        labels.append(item['has_answer'])
-    hidden_data = torch.tensor(hidden_data)
-    labels = torch.tensor(labels)
-    torch.save(hidden_data, out_data_path)
-    torch.save(labels, out_label_path)
-
-def get_train_dev_test_data():
-    base_dir = './data/nq/mid_layers/llama3-8b-instruct/test/'
-    paths = os.listdir(base_dir)
-    for item in paths:
-        file_path = base_dir + item
-        prepare_data(file_path)
 
 def prepare_mode_data(path, hidden_modes, mode_hidden_states={}, labels=[]):
     """
@@ -248,8 +157,6 @@ def prepare_sample_train_data(train_path):
 
 if __name__ == "__main__":
     dir = '../share/res/nq/qwen2/mid_layer/zero-shot-chat/' 
-
-    # prepare_mode_data_for_dir(dir, 'mid')
     prepare_mode_data_for_nq(dir, 'mid')
 
     
