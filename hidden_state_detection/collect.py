@@ -313,7 +313,10 @@ def get_res_for_different_seed(base_dir):
     for mode in ['first', 'last', 'avg']:
         mode_score = [0.0, 0.0]
         for seed in ['0', '42', '100']:
-            file_path = base_dir + 'sample_' + mode + '_seed' + seed + '.jsonl'
+            if 'sample' in base_dir:
+                file_path = base_dir + 'sample_' + mode + '_seed' + seed + '.jsonl'
+            else:
+                file_path = base_dir + mode + '_seed' + seed + '.jsonl'
             data = read_json(file_path)
             for idx in [0, 1]:
                 mode_score[idx] += list(data[idx].values())[0]
@@ -368,29 +371,31 @@ def different_knowledge_level():
     print(f'right->wrong: {round(len(right2wrong)/len(qa_data), 4)}')
     print(f'wrong->right: {round(len(wrong2right)/len(qa_data), 4)}')
 
-def sample_training_data_for_random_mc(rand_path, gene_path):
-    # ./data/nq-mc/llama2-chat-7b/mid_layer/zero-shot-random/nq-train-random-choice.jsonl
+def sample_training_data_for_random_mc(rand_path, acc=0):
     wrong_list = []
     data = read_json(rand_path)
-    gene_data = read_json(gene_path)
     for idx in range(len(data)):
-        if data[idx]['has_answer'] == 0:
+        if data[idx]['has_answer'] == acc:
             wrong_list.append(idx)
     remain_idx = [item for item in range(len(data)) if item not in wrong_list]
     total_idx = wrong_list + random.sample(remain_idx, len(wrong_list))
 
-    new_data = [gene_data[idx] for idx in range(len(data)) if idx in total_idx]
-    out_path = '/'.join(gene_path.split('/')[:-1]) + '/' + gene_path.split('/')[-1].replace('choice', 'choice-sample')
+    new_data = [data[idx] for idx in range(len(data)) if idx in total_idx]
+    out_path = '/'.join(rand_path.split('/')[:-1]) + '/' + rand_path.split('/')[-1].replace('choice', 'choice-sample')
     write_jsonl(new_data, out_path)
 
              
 
 if __name__ == '__main__':
-    get_res_for_different_seed('./data/hq-mc/llama3-8b-instruct/mid_layer/zero-shot-gene/mid_layer/sample_res/')
-    # compute_acc('./data/hq-mc/llama3-8b-instruct/mid_layer/zero-shot-random/hq-test-random-choice.jsonl')
-    # rand_path = './data/hq-mc/llama2-chat-7b/mid_layer/zero-shot-random/hq-train-random-choice.jsonl'
-    # gen_path = './data/hq-mc/llama2-chat-7b/mid_layer/zero-shot-gene/hq-train-gene-choice.jsonl'
-    # sample_training_data_for_random_mc(rand_path, gen_path)
+    # model = 'llama3-8b-instruct'
+    # chat_mode = 'zero-shot-none'
+    # dataset = 'hq'
+    # get_res_for_different_seed(f'../share/res/{dataset}-mc/{model}/mid_layer/{chat_mode}/mid_layer/res/')
+    # compute_acc(f'../share/res/{dataset}-mc/{model}/mid_layer/{chat_mode}/{dataset}-test-gene-none.jsonl')
+    for dataset in ['nq', 'hq']:
+        for chat_mode in ['zero-shot-none']:
+            train_sample_path = f'../share/res/{dataset}-mc/qwen2/mid_layer/{chat_mode}/{dataset}-train-none-choice.jsonl'
+            sample_training_data_for_random_mc(train_sample_path, 1)
 
 
 

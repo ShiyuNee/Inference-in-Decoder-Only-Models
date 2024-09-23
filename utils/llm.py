@@ -72,6 +72,8 @@ class Generater:
         # print(f'text: {self.tokenizer.batch_decode(new_ids, skip_sepcial_tokens=True)}')
         end_idx = self.get_generation_end(new_ids)
         print(f'end_idx: {end_idx}')
+        for idx in range(len(new_ids)):
+            print(self.tokenizer.convert_ids_to_tokens(new_ids[idx][:end_idx[idx]]))
         # 存储概率最大的token_id, 存储对应的probs, 存储seqs对应probs. 当且仅当使用greedy search时, top_indices=outs['sequence']
         top_indices, top_scores, ans_scores, ans_entropy = self.get_generated_tokens_probs_entropy(scores, new_ids, bt_size)
 
@@ -84,10 +86,14 @@ class Generater:
                 if mode == 'every': # 得到ans token在每一层的概率, 每一层的top-1 token
                     probs_for_generated_tokens, tokens_for_each_layer = self.get_token_and_prob_for_each_pos(outs, bt_size, end_idx) #(bt_size, layers, ans_len)
                 else:
-                    pos_idx = self.get_need_idx_for_generation(top_scores, end_idx, mode)
+                    if mode == 'conf':
+                        pos_idx = self.get_confidence_idx(outs, inputs, end_idx)
+                    else:
+                        pos_idx = self.get_need_idx_for_generation(top_scores, end_idx, mode)
                     hidden_states = self.get_hidden_states_for_given_pos(outs, bt_size, pos_idx, mode)
                     for bt in range(bt_size):
                         all_modes_hidden_state[bt][mode] = hidden_states[bt]
+                
 
         for bt in range(bt_size):
             # print(f'ans: {self.tokenizer.decode(new_ids[bt][:end_idx[bt]])}')
@@ -206,6 +212,8 @@ class Generater:
                         res_sample['question'] = all_data[idx]['question']
                         res_sample['has_answer'] = has_answer(all_data[idx]['reference'], res_sample['Res'])
                         res_sample['reference'] = all_data[idx]['reference']
+                    if 'prior'in self.args.type: # verbalized confidence
+                        res_sample['has_answer'] = deal_judge_new(res_sample['Res'])
                     if self.args.attn_weights:
                         res_sample['attn_weights'] = self.outputs[begin]['attn_weights'].tolist()
                     if self.args.hidden_states:
@@ -403,3 +411,33 @@ class Generater:
         ans_scores = torch.tensor(ans_scores).t()
         ans_entropy = torch.tensor(ans_entropy).t()
         return top_indices, top_scores, ans_scores, ans_entropy
+    
+    def get_confidence_idx(self, outs, inputs, end_idx):
+        batch_size, input_len = inputs.shape
+        seqs = outs['sequences'] # batch_size, seq_len, 存储的是token_id
+        new_token_ids = seqs[:, input_len:]
+
+        pattern = ['certain', 'uncertain', 'ġcertain', 'ġuncertain', '▁certain', '▁uncertain']
+        res_idx = []
+        for bt in range(len(new_token_ids)):
+            bt_res = self.tokenizer.convert_ids_to_tokens(new_token_ids[bt][:end_idx[bt]])
+            flag = 0
+            for span_len in [3, 2, 1]:
+                span_start = 0
+                span_end = span_start + span_len - 1
+                while span_end < len(bt_res):
+                    span_text = ''.join(bt_res[span_start:span_end + 1]).lower().strip()
+                    if span_text in pattern:
+                        res_idx.append(span_start)
+                        flag = 1
+                        break   
+                    span_start += 1
+                    span_end += 1
+                if flag == 1:
+                    break
+            if flag == 0:
+                if self.args.model_name == 'llama2-chat-7b':
+                    res_idx.append(1)
+                else:
+                    res_idx.append(0)
+        return res_idx

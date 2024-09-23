@@ -101,14 +101,13 @@ def prepare_mode_data(path, hidden_modes, mode_hidden_states={}, labels=[]):
                 mode_hidden_states[mode].append(hidden_state)
     return mode_hidden_states, labels
 
-def prepare_mode_data_for_dir(dir, mode='mid'):
+def prepare_mode_data_for_dir(dir, mode, hidden_modes):
     """
     得到mmlu的所有mode得到的hidden states
     """
     paths = [item for item in os.listdir(dir) if '.jsonl' in item]
     hidden_states = {}
     labels = []
-    hidden_modes = ['first', 'last', 'avg']
     for path in paths:
         file_path = dir + path
         hidden_states, labels = prepare_mode_data(file_path, hidden_modes, hidden_states, labels)
@@ -124,9 +123,8 @@ def prepare_mode_data_for_dir(dir, mode='mid'):
     out_label = dir + mode + '_layer/labels.pt'
     torch.save(torch.tensor(labels), out_label)    
 
-def prepare_mode_data_for_nq(dir, mode):
+def prepare_mode_data_for_nq(dir, mode, hidden_modes):
     paths = [item for item in os.listdir(dir) if '.jsonl' in item]
-    hidden_modes = ['first', 'last', 'avg']
     for path in paths:
         file_path = dir + path
         hidden_states = {}
@@ -156,8 +154,15 @@ def prepare_sample_train_data(train_path):
     torch.save(torch.tensor(labels), out_label)   
 
 if __name__ == "__main__":
-    dir = '../share/res/nq/qwen2/mid_layer/zero-shot-chat/' 
-    prepare_mode_data_for_nq(dir, 'mid')
+    for dataset in ['mmlu']:
+        for chat_mode in ['zero-shot-cot']:
+            for model in ['llama3-8b-instruct', 'llama2-chat-7b', 'qwen2']:
+                dir = f'../share/res/{dataset}/{model}/mid_layer/{chat_mode}/'
+                hidden_mode = ['first', 'last', 'avg', 'ans'] 
+                # prepare_mode_data_for_nq(dir, 'mid', hidden_mode)
+                prepare_mode_data_for_dir(dir, 'mid', hidden_mode)
+                # train_sample_path = f'../share/res/{dataset}-mc/{model}/mid_layer/{chat_mode}/{dataset}-train-none-choice-sample.jsonl'
+                # prepare_sample_train_data(train_sample_path)
 
     
 

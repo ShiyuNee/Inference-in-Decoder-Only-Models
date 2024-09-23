@@ -50,9 +50,20 @@ def compute_ece(acc_list, prob_list):
         print(f'avg acc: {sum(acc_bin[idx])/len(acc_bin[idx])}')
         print(f'avg prob: {sum(prob_bin[idx])/len(prob_bin[idx])}')
 
-def extract_answer_verification(cot_data, extracted_data):
-    pass
+def get_align_for_verbalized_conf(acc_path, verb_conf):
+    answer_data = read_json(acc_path)
+    conf_data = read_json(verb_conf)
+    align = []
+    assert len(answer_data) == len(conf_data)
+    for idx in range(len(answer_data)):
+        if answer_data[idx]['has_answer'] != conf_data[idx]['has_answer']:
+            align.append(1)
+        else:
+            align.append(0)
+    print(f'count: {len(align)}')
+    print(f'align: {sum(align)/len(align)}')
 
 
-acc, probs = compute_all_files('./res/mmlu/zero-shot')
-compute_ece(acc, probs)
+acc_path = './res/hq/llama3-8b-instruct/zero-shot-chat/hq_test_llama8b_tokens_mid_layer.jsonl'
+verb_conf = './res/hq/llama3-8b-instruct/hq_test_llama8b_prior.jsonl'
+get_align_for_verbalized_conf(acc_path, verb_conf)
