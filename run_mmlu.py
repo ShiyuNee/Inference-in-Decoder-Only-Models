@@ -33,7 +33,7 @@ def get_args():
     parser.add_argument('--source', type=str, default='data/source/nq.json')
     parser.add_argument('--response', type=str, default='')
     parser.add_argument('--usechat', action='store_true')
-    parser.add_argument('--type', type=str, choices=['mc_qa', 'mc_qa_evidence', 'mc_qa_cot'], default='qa')
+    parser.add_argument('--type', type=str, choices=['mc_qa', 'mc_qa_evidence', 'mc_qa_cot', 'mc_qa_prior'], default='qa')
     parser.add_argument('--ra', type=str, default="none", choices=ra_dict.keys())
     parser.add_argument('--outfile', type=str, default='data/qa/chatgpt-nq-none.json')   
     parser.add_argument('--idx', type=str, default="")   

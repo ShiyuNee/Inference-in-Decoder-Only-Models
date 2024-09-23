@@ -72,8 +72,8 @@ class Generater:
         # print(f'text: {self.tokenizer.batch_decode(new_ids, skip_sepcial_tokens=True)}')
         end_idx = self.get_generation_end(new_ids)
         print(f'end_idx: {end_idx}')
-        for idx in range(len(new_ids)):
-            print(self.tokenizer.convert_ids_to_tokens(new_ids[idx][:end_idx[idx]]))
+        # for idx in range(len(new_ids)):
+        #     print(self.tokenizer.convert_ids_to_tokens(new_ids[idx][:end_idx[idx]]))
         # 存储概率最大的token_id, 存储对应的probs, 存储seqs对应probs. 当且仅当使用greedy search时, top_indices=outs['sequence']
         top_indices, top_scores, ans_scores, ans_entropy = self.get_generated_tokens_probs_entropy(scores, new_ids, bt_size)
 
@@ -161,7 +161,10 @@ class Generater:
                 elif mode == 'ans': # 取response中ans的first token
                     hidden_states = self.get_hidden_states_for_given_pos(outs, bt_size, ans_token_idx, mode)
                 else:
-                    pos_idx = self.get_need_idx_for_generation(top_scores, end_idx, mode)
+                    if mode == 'conf':
+                        pos_idx = self.get_confidence_idx(outs, inputs, end_idx)
+                    else:
+                        pos_idx = self.get_need_idx_for_generation(top_scores, end_idx, mode)
                     hidden_states = self.get_hidden_states_for_given_pos(outs, bt_size, pos_idx, mode)
                 for bt in range(bt_size):
                     all_modes_hidden_state[bt][mode] = hidden_states[bt]
@@ -213,7 +216,7 @@ class Generater:
                         res_sample['has_answer'] = has_answer(all_data[idx]['reference'], res_sample['Res'])
                         res_sample['reference'] = all_data[idx]['reference']
                     if 'prior'in self.args.type: # verbalized confidence
-                        res_sample['has_answer'] = deal_judge_new(res_sample['Res'])
+                        res_sample['has_answer'] = deal_judge_new(res_sample['Res']) if 'mc' not in self.args.type else deal_judge_new(res_sample['Full_res'])
                     if self.args.attn_weights:
                         res_sample['attn_weights'] = self.outputs[begin]['attn_weights'].tolist()
                     if self.args.hidden_states:
@@ -417,7 +420,7 @@ class Generater:
         seqs = outs['sequences'] # batch_size, seq_len, 存储的是token_id
         new_token_ids = seqs[:, input_len:]
 
-        pattern = ['certain', 'uncertain', 'ġcertain', 'ġuncertain', '▁certain', '▁uncertain']
+        pattern = ['certain', 'uncertain', 'ġcertain', 'ġuncertain', '▁certain', '▁uncertain', '*certain', '*uncertain']
         res_idx = []
         for bt in range(len(new_token_ids)):
             bt_res = self.tokenizer.convert_ids_to_tokens(new_token_ids[bt][:end_idx[bt]])

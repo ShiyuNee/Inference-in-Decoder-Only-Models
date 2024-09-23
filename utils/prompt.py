@@ -30,6 +30,11 @@ prompt_dict = {
         'ra': 'Given the following information: \n{paras}\nAnswer the following question based on the given information or your internal knowledge with one or few words.\nQuestion: {question}{prediction}',
         'tail': '\nAnswer: ',
     },
+    'mc_qa_prior': {
+        'none': 'Please determine if you can accurately select the correct answer to the question. If yes, reply with "certain", otherwise reply with "uncertain". Start your response with "certain" or "uncertain" and do not give any other words.\n\n{question}{paras}{prediction}',
+        'ra': 'Given the following information: \n{paras}\nAnswer the following question based on the given information or your internal knowledge with one or few words.\nQuestion: {question}{prediction}',
+        'tail': '\nResponse: ',
+    }, 
     'mc_qa_cot': {
         'none': 'The following are multiple choice questions (with answers){subject}. Briefly explain your reasoning with one or few sentences and choose the correct answer. Start with “So, the correct answer is” to select the correct answer.\n\n{question}{paras}{prediction}',
         'ra': 'Given the following information: \n{paras}\nAnswer the following question based on the given information or your internal knowledge with one or few words.\nQuestion: {question}{prediction}',
