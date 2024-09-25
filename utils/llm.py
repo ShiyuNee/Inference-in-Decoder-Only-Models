@@ -6,7 +6,7 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 import torch.nn as nn
 from tqdm import tqdm
-
+all_choices=['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
     
 class Generater:
     def __init__(self, args):
@@ -27,6 +27,9 @@ class Generater:
     def load_data(self, data):
         self.data = data
         self.dataloader = DataLoader(self.data, shuffle=False, batch_size=self.batch_size)
+        if self.args.task == 'mmlu' or self.args.task == 'tq':
+            self.choice_cnt = self.data.choice_cnt
+        
 
     def get_res(self):
         self.outputs = []
@@ -123,9 +126,11 @@ class Generater:
         Return:
             - 
         """
-        choices = ['A', 'B', 'C', 'D', 'A', 'B', 'C', 'D'] # token可能有A和(A, 长度为8是为了对应
+        choices = all_choices[:self.choice_cnt] + all_choices[:self.choice_cnt]
+        # choices = ['A', 'B', 'C', 'D', 'E', 'A', 'B', 'C', 'D', 'E'] # token可能有A和(A, 长度为8是为了对应
         if self.args.model_name in ['llama3-8b-instruct', 'qwen2-7b-instruct']:
-            choices = ['A', 'B', 'C', 'D', 'A', 'B', 'C', 'D', 'A', 'B', 'C', 'D']
+            choices = all_choices[:self.choice_cnt] + all_choices[:self.choice_cnt] + all_choices[:self.choice_cnt]
+            # choices = ['A', 'B', 'C', 'D', 'E', 'A', 'B', 'C', 'D', 'E', 'A', 'B', 'C', 'D', 'E']
         input_len = inputs.shape[-1]
         seqs = outs['sequences'] # batch_size, seq_len, 存储的是token_id
         scores = outs['scores'] # tuple of tensor (generated_len) -> (batch_size, vocab_size)
@@ -304,9 +309,11 @@ class Generater:
         """
         batch_size, input_len = inputs.shape
         # llama3中, 'A'和' A'不是一个表示
-        choices = ['A', 'B', 'C', 'D', '(A)', '(B)', '(C)', '(D)']
+        choices = all_choices[:self.choice_cnt] + ['(' + item + ')' for item in all_choices[:self.choice_cnt]]
+        # choices = ['A', 'B', 'C', 'D', 'E', '(A)', '(B)', '(C)', '(D)', '(E)']
         if self.args.model_name in ['llama3-8b-instruct', 'qwen2-7b-instruct']:
-            choices = ['A', 'B', 'C', 'D', '(A)', '(B)', '(C)', '(D)', ' A', ' B', ' C', ' D']
+            choices = all_choices[:self.choice_cnt] + ['(' + item + ')' for item in all_choices[:self.choice_cnt]] + [' ' + item for item in all_choices[:self.choice_cnt]]
+            # choices = ['A', 'B', 'C', 'D', 'E', '(A)', '(B)', '(C)', '(D)', '(E)', ' A', ' B', ' C', ' D', ' E']
         out_idx = [0 for _ in range(batch_size)] # 没找到就默认为第一个token
         seqs = outs['sequences'] # batch_size, seq_len, 存储的是token_id
         new_token_ids = seqs[:, input_len:]

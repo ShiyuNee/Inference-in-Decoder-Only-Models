@@ -25,6 +25,11 @@ prompt_dict = {
         'ra': 'Given the following information: \n{paras}\nAnswer the following question based on the given information or your internal knowledge with one or few words.\nQuestion: {question}{prediction}',
         'tail': '\nResponse: ',
     }, 
+    'qa_post': {
+        'none': 'Here is a question and the answer you provided. Please determine whether the answer is correct. If it is correct, respond with "certain." If it is incorrect, respond with "uncertain." Start your response with "certain" or "uncertain" and do not give any other words.\nQuestion: {question}{paras}{prediction}\nResponse: {prediction}',
+        'ra': 'Given the following information: \n{paras}\nAnswer the following question based on the given information or your internal knowledge with one or few words.\nQuestion: {question}{prediction}',
+        'tail': '\nResponse: ',
+    }, 
     'mc_qa': {
         'none': 'The following are multiple choice questions (with answers){subject}. Select the correct answer without any irrelevant words. Do not include conversational words and do not provide any explanation.\n\n{question}{paras}{prediction}',
         'ra': 'Given the following information: \n{paras}\nAnswer the following question based on the given information or your internal knowledge with one or few words.\nQuestion: {question}{prediction}',
@@ -32,6 +37,11 @@ prompt_dict = {
     },
     'mc_qa_prior': {
         'none': 'Please determine if you can accurately select the correct answer to the question. If yes, reply with "certain", otherwise reply with "uncertain". Start your response with "certain" or "uncertain" and do not give any other words.\n\n{question}{paras}{prediction}',
+        'ra': 'Given the following information: \n{paras}\nAnswer the following question based on the given information or your internal knowledge with one or few words.\nQuestion: {question}{prediction}',
+        'tail': '\nResponse: ',
+    }, 
+    'mc_qa_post': {
+        'none': 'Here is a question and the answer you select. Please determine whether the answer is correct. If it is correct, respond with "certain." If it is incorrect, respond with "uncertain." Start your response with "certain" or "uncertain" and do not give any other words.\nQuestion: {question}{paras}{prediction}\nResponse: {prediction}',
         'ra': 'Given the following information: \n{paras}\nAnswer the following question based on the given information or your internal knowledge with one or few words.\nQuestion: {question}{prediction}',
         'tail': '\nResponse: ',
     }, 

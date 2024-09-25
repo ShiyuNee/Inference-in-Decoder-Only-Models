@@ -63,7 +63,26 @@ def get_align_for_verbalized_conf(acc_path, verb_conf):
     print(f'count: {len(align)}')
     print(f'align: {sum(align)/len(align)}')
 
-
-acc_path = './res/hq/llama3-8b-instruct/zero-shot-chat/hq_test_llama8b_tokens_mid_layer.jsonl'
-verb_conf = './res/hq/llama3-8b-instruct/hq_test_llama8b_prior.jsonl'
-get_align_for_verbalized_conf(acc_path, verb_conf)
+def get_align_for_verbalized_conf_for_dir(acc_dir, verb_dir):
+    acc_list = []
+    conf_list = []
+    align = []
+    acc_paths = sorted([f for f in os.listdir(acc_dir) if ".jsonl" in f])
+    for item in acc_paths:
+        acc_data = read_json(os.path.join(acc_dir, item))
+        conf_data = read_json(os.path.join(verb_dir, item))
+        for idx in range(len(acc_data)):
+            acc_list.append(acc_data[idx]['has_answer'])
+            conf_list.append(conf_data[idx]['has_answer'])
+            if acc_list[-1] != conf_list[-1]:
+                align.append(1)
+            else:
+                align.append(0)
+    print(f'count: {len(acc_list)}')
+    print(f'acc: {sum(acc_list)/len(acc_list)}')
+    print(f'uncertain: {sum(conf_list)/len(conf_list)}')
+    print(f'align: {sum(align)/len(align)}')
+            
+acc_dir = './res/mmlu/llama2-chat-7b/zero-shot-mid'
+verb_dir = './res/mmlu/llama2-chat-7b/zero-shot-prior/'
+get_align_for_verbalized_conf_for_dir(acc_dir, verb_dir)

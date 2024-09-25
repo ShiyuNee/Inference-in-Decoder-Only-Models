@@ -47,9 +47,15 @@ class MCDataset(Dataset):
         self.data = self.read('test')
         self.idxs = range(len(self.data))
         self.dev_data = self.read('dev') if self.args.n_shot != 0 else []
-        self.choices = ['A', 'B', 'C', 'D']
+        self.get_choice_count()
         self.prompts = []
         self.get_prompted_data()
+    
+    def get_choice_count(self):
+        all_choices = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
+        self.choice_cnt = len(self.data[0]) - 2
+        self.choices = all_choices[:self.choice_cnt]
+
 
     def read(self, mode='test'):
         mmlu_data = pd.read_csv(os.path.join(self.args.source, mode, self.subject + f"_{mode}.csv"), header=None).to_numpy() # no header

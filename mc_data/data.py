@@ -46,7 +46,7 @@ def clean_data(ref, gene_str):
     item_data = item_data[0] if len(item_data) == 1 else ':'.join(item_data[1:])
     # 用完set顺序会变,需要控制以保证结果可复现
     # 选项不包含groun truth, 且不是拒绝回答
-    gene_ans = sorted(list(set([item.strip() for item in item_data.split(';') if len(item) > 0 and not has_answer(ref, item) and not deal_judge(item)])))
+    gene_ans = list(dict.fromkeys([item.strip() for item in item_data.split(';') if len(item) > 0 and not has_answer(ref, item) and not deal_judge(item)]))
     return gene_ans
 
 def convert_qa_to_random_choices():
@@ -71,7 +71,7 @@ def convert_qa_to_random_choices():
             csv_data.append(temp_answers)
         write_2d_list_to_csv(f'../{dataset}/{dataset}-{mode}-random-choice.csv', csv_data)
 
-def convert_qa_to_generated_choices():
+def convert_qa_to_generated_choices_with_gt():
     random.seed(0)
     mode = 'test'
     dataset = 'hq'
@@ -110,9 +110,12 @@ def convert_qa_to_generated_choices():
     write_2d_list_to_csv(f'../{dataset}/{dataset}-{mode}-gene-choice_test.csv', csv_data)
 
 def convert_qa_to_gene_none_data(path): 
+    """
+    path = '/Users/shiyuni/Documents/research/project/datasets/hq/hq-test-gene-choice_test.csv'
+    convert_qa_to_gene_none_data(path)
+    """
     choice_idx = {'A':0, 'B':1, 'C':2, 'D':3}
     data = []  
-    res = []
     with open(path, mode='r') as file:
         csv_reader = csv.reader(file)
         # 遍历并打印每一行
@@ -120,15 +123,66 @@ def convert_qa_to_gene_none_data(path):
             data.append(row)
 
     for idx in range(len(data)):
-        gene_choice = [data[idx][1 + item] for item in range(4) if item != choice_idx[data[idx][-1]]] 
-        new_data = [data[idx][0]] + gene_choice + ["None of above", 'D']
-        res.append(new_data)
+        data[idx][1 + choice_idx[data[idx][-1]]] = 'None of the others' 
     out_path = path.replace('gene-choice', 'gene-none')
-    write_2d_list_to_csv(out_path, res)
+    write_2d_list_to_csv(out_path, data)
+
+def convert_qa_to_generated_choices(ans_cnt=3, with_none=True):
+    random.seed(0)
+    base_dir = '/Users/shiyuni/Documents/research/project/datasets'
+    for mode in ['train', 'dev', 'test']:
+        for dataset in ['nq', 'hq']:
+            data = read_json(f'{base_dir}/{dataset}/{dataset}-{mode}.jsonl')
+            origin_gene_data = read_json(f'{base_dir}/{dataset}/{dataset}_{mode}_llama8b_10_answers.jsonl')
+            assert len(data) == len(origin_gene_data)
+            csv_data = []
+            cnt = 0
+            acc = 0
+            gene_data = [clean_data('nishiyu', item['Res']) for item in origin_gene_data]
+            for idx in range(len(data)):
+                right_answer = ""
+                idx_answer = {-1: 'none', 0:'A', 1:'B', 2:'C', 3:'D', 4:'E', 5:'F', 6:'G'}
+                gene_ans = gene_data[idx]
+                sample_cnt = ans_cnt # 取n个选项
+                need_cnt = 0
+                gt_choice_idx = -1
+                # 先凑齐需要的生成choice
+                if len(gene_ans) >= sample_cnt:
+                    sample_data = gene_ans[:sample_cnt]
+                else:
+                    cnt += 1
+                    sample_data = gene_ans
+                    need_cnt = sample_cnt - len(sample_data)
+                    remain_idx = [item for item in range(len(data)) if item != idx and len(gene_data[item]) >= 1]
+                    # 生成的不够, 从其他问题答案中随机采样
+                    remain_ans = [gene_data[item][0] for item in random.sample(remain_idx, need_cnt)]
+                    sample_data += remain_ans
+                # 凑齐了answer选项, 进行下一步
+                for item in sample_data:
+                    if has_answer(data[idx]['reference'], item):
+                        right_answer = item
+                        acc += 1
+                        break
+                # 需要加一个none选项进去    
+                if with_none == True:
+                    if right_answer == "":
+                        right_answer = 'None of the others'
+                    sample_data.append('None of the others')
+
+                random.shuffle(sample_data)
+                for choice_idx in range(len(sample_data)):
+                    if sample_data[choice_idx] == right_answer:
+                        gt_choice_idx = choice_idx
+                sample_data.append(idx_answer[gt_choice_idx])
+                sample_data.insert(0, data[idx]['question'])
+                csv_data.append(sample_data)
+                print(sample_data)
+            print(f'less answer ratio: {cnt/len(gene_data)}')
+            print(f'acc: {acc/len(data)}')
+            write_2d_list_to_csv(f'{base_dir}/{dataset}/{dataset}-{mode}-gene-choice-without-gt-{ans_cnt}-none-{with_none}_test.csv', csv_data)
 
 if __name__ == '__main__':
-    path = '/Users/shiyuni/Documents/research/project/datasets/hq/hq-test-gene-choice_test.csv'
-    convert_qa_to_gene_none_data(path)
+    convert_qa_to_generated_choices(6, False)
 
 
 
