@@ -58,7 +58,7 @@ class MCDataset(Dataset):
 
 
     def read(self, mode='test'):
-        mmlu_data = pd.read_csv(os.path.join(self.args.source, mode, self.subject + f"_{mode}.csv"), header=None).to_numpy() # no header
+        mmlu_data = pd.read_csv(os.path.join(self.args.source, self.args.data_mode, self.subject + f"_{mode}.csv"), header=None).to_numpy() # no header
         return mmlu_data
     
     def format_subject(self, subject):

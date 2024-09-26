@@ -31,6 +31,7 @@ def get_args():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--source', type=str, default='data/source/nq.json')
+    parser.add_argument('--data_mode', type=str, default='zero-shot-chat')
     parser.add_argument('--response', type=str, default='')
     parser.add_argument('--usechat', action='store_true')
     parser.add_argument('--type', type=str, choices=['mc_qa', 'mc_qa_evidence', 'mc_qa_cot', 'mc_qa_prior'], default='qa')
@@ -62,7 +63,7 @@ def main():
     print(args)
     # engine = ParallelGenerater(args)
     engine = Generater(args)
-    subjects = sorted([f.split("_test.csv")[0] for f in os.listdir(os.path.join(args.source, "test")) if "_test.csv" in f])
+    subjects = sorted([f.split("_test.csv")[0] for f in os.listdir(os.path.join(args.source, args.data_mode)) if "_test.csv" in f])
     print(f'subjects: {subjects}')
     accuracy = {}
     total_acc = 0
