@@ -54,7 +54,7 @@ def run(args):
     test_score, dev_idx, best_test_score, test_idx, test_pred, best_test_pred = engine.finetune(epochs=args.epochs, mode=mode, lr_rate=args.lr_rate)
     print(f'test score: {test_score}, idx={dev_idx}')
     print(f'best test score: {best_test_score}, idx={test_idx}')
-    return test_score, best_test_score
+    return test_score, best_test_score, test_pred
 
 
 def get_args():
@@ -87,11 +87,13 @@ if __name__ == '__main__':
     os.environ['CUDA_VISIBLE_DEVICES']=args.which_gpu
     print(args)
 
-    score, best_score = run(args)
+    score, best_score, test_pred = run(args)
     res = [{'test_score': round(score.item(), 4)}, {'best_test_score': round(best_score.item(), 4)}]
+    pred_res = [{'test_pred': test_pred}]
     if not os.path.exists(args.out_path):
         os.makedirs(args.out_path)
     hidden_mode = args.data.split('/')[-1].replace('.pt', '').replace('_train', '')
     write_jsonl(res, args.out_path + hidden_mode + '_seed' + str(seed) + '.jsonl')
+    write_jsonl(pred_res, args.out_path + 'pred_' + hidden_mode + '_seed' + str(seed) + '.jsonl')
 
 

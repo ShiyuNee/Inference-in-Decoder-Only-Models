@@ -54,8 +54,7 @@ class Generator:
         avg_ood_loss, test_pred, ood_auroc = self.evaluate('ood', mode, device)
         print('Begin Average test acc ' + str(avg_dev_loss) + ', Auroc test ' + str(dev_auroc))
         print('Begin Average ood acc ' + str(avg_ood_loss) + ', Auroc ood ' + str(ood_auroc))
-        # avg_dev_loss = self.evaluate('cuda')
-        # print(f'Begin, Average acc ' + str(avg_dev_loss))
+
         for epoch in range(0, epochs):
             print('Epoch ' + str(epoch) + ' start')
             total_train_loss = 0.0
@@ -97,8 +96,6 @@ class Generator:
         test_score = test_acc_list[dev_idx]
         test_pred = test_pred_list[dev_idx]
         best_test_pred = test_pred_list[test_idx]
-        # print(f'test score: {test_score}, idx: {dev_idx}')
-        # print(f'test max score: {best_test_score}, idx: {test_idx}')
         return test_score, dev_idx, best_test_score, test_idx, test_pred, best_test_pred
 
     def evaluate(self, test_mode, mode, device):

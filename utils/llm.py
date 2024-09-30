@@ -220,7 +220,7 @@ class Generater:
                         res_sample['question'] = all_data[idx]['question']
                         res_sample['has_answer'] = has_answer(all_data[idx]['reference'], res_sample['Res'])
                         res_sample['reference'] = all_data[idx]['reference']
-                    if 'prior'in self.args.type: # verbalized confidence
+                    if 'prior' in self.args.type or 'post' in self.args.type: # verbalized confidence
                         res_sample['has_answer'] = deal_judge_new(res_sample['Res']) if 'mc' not in self.args.type else deal_judge_new(res_sample['Full_res'])
                     if self.args.attn_weights:
                         res_sample['attn_weights'] = self.outputs[begin]['attn_weights'].tolist()

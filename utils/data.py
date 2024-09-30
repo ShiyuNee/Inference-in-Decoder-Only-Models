@@ -1,6 +1,6 @@
 import json
 from torch.utils.data import DataLoader, Dataset, RandomSampler
-from utils.prompt import get_prompt
+from utils.prompt import get_prompt, get_prompt_for_multi_round
 import pandas as pd
 import os
 
@@ -26,7 +26,10 @@ class QADataset(Dataset):
         for idx in range(len(self.data)):
             if 'info' not in self.data[idx]:
                 self.idxs.append(idx)
-                self.prompts.append(get_prompt(self.data[idx], self.args)) 
+                if self.args.usechat:
+                    self.prompts.append(get_prompt_for_multi_round(self.data[idx], self.args)) 
+                else:
+                    self.prompts.append(get_prompt(self.data[idx], self.args)) 
         for item in self.prompts[:5]:
             print(f'example: {item}')
 

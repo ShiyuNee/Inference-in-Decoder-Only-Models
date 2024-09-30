@@ -1,4 +1,11 @@
-from utils.utils import remove_punc
+import json
+def read_json(path):
+    qa_data = []
+    f = open(path, 'r', encoding='utf-8')
+    for line in f.readlines():
+        qa_data.append(json.loads(line))
+    return qa_data
+
 prompt_dict = {
     'qa': {
         'none': 'Answer the following question based on your internal knowledge with one or few words.\nQuestion: {question}{paras}{prediction}',
@@ -77,6 +84,14 @@ model_template_dict = {
     }
 }
 
+model_template_dict_for_multi_round = {
+    'llama3-8b-instruct':{
+        'sys_prefix': '<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\nYou are a helpful AI assistant for answering factual questions',
+        'user_prefix': '<|start_header_id|>user<|end_header_id|>\n\n',
+        'assis_prefix': '<|start_header_id|>assistant<|end_header_id|>\n\n',
+        'end': "<|eot_id|>\n"
+    },
+}
 def get_prompt(sample, args):
     paras = ""
     ref_key = 'question'
@@ -105,4 +120,38 @@ def get_prompt(sample, args):
     prompt = template_prompt['prefix'] + prompt + template_prompt['end']
     return prompt
 
+def get_prompt_for_multi_round(sample, args):
+    # question, answer, generate, 10answers
+    prompt = ''
+    template_prompt = model_template_dict_for_multi_round[args.model_name]
+    # sys
+    prompt += template_prompt['sys_prefix']
+    prompt += template_prompt['end']
+    for idx in range(len(sample['question'])):
+        if idx % 2 == 0:
+            # question
+            prompt += template_prompt['user_prefix']
+            prompt += sample['question'][idx]
+            prompt += template_prompt['end']
+        else:
+            # answer
+            prompt += template_prompt['assis_prefix']
+            prompt += sample['question'][idx]
+            prompt += template_prompt['end']
+   
+    prompt += template_prompt['user_prefix']
+    prompt += f'Please determine whether your response [{sample["question"][1]}] contains the correct answer. If yes, respond with "certain." If it is incorrect, respond with "uncertain." Start your response with "certain" or "uncertain" and do not give any other words.'
+    prompt += template_prompt['end']
+    prompt += template_prompt['assis_prefix']
+    # print(prompt)
+    return prompt
+
+if __name__ == '__main__':
+    model_name='qwen7b'
+    base_dir = '/Users/shiyuni/Documents/research/project/datasets'
+    mode = 'test'
+    dataset = 'nq'
+    out_path = f'{base_dir}/{dataset}/multi_round/{dataset}_{mode}_{model_name}.jsonl'
+    data = read_json(out_path)
+    get_prompt_for_multi_round(data[0], {'model_name': 'llama3-8b-instruct'})
 
