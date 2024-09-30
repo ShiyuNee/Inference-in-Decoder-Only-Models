@@ -3,6 +3,7 @@ import random
 from utils import has_answer, deal_judge_new
 import csv
 import re
+import os
 random.seed(0)
 
 def read_json(path):
@@ -36,17 +37,29 @@ def write_2d_list_to_csv(filename, data):
         for row in data:
             writer.writerow(row)
 
-def clean_data(ref, gene_str):
-    item_data = gene_str.replace('\n', '').replace('Sure!', '')
-    # 使用正则表达式去除序号和多余空格
-    cleaned_string = re.sub(r'\d+\.\s*', '', item_data).strip()
-    # 以分号为分隔符进行分割并去除空白字符
-    item_data = cleaned_string.split(':')
-    # 生成格式可能是The answers are: , 也可能没有冒号
-    item_data = item_data[0] if len(item_data) == 1 else ':'.join(item_data[1:])
-    # 用完set顺序会变,需要控制以保证结果可复现
-    # 选项不包含groun truth, 且不是拒绝回答
-    gene_ans = list(dict.fromkeys([item.strip() for item in item_data.split(';') if len(item) > 0 and not has_answer(ref, item) and not deal_judge_new(item)]))
+def clean_data(ref, gene_str, model_name):
+    if type(ref) != list:
+        ref = [ref]
+    if model_name != 'llama7b':
+        item_data = gene_str.replace('\n', '')
+        # 使用正则表达式去除序号和多余空格
+        cleaned_string = re.sub(r'\d+\.\s*', '', item_data).strip()
+        # 以分号为分隔符进行分割并去除空白字符
+        item_data = cleaned_string.split(':')
+        # 生成格式可能是The answers are: , 也可能没有冒号
+        item_data = item_data[0] if len(item_data) == 1 else ':'.join(item_data[1:])
+        # 用完set顺序会变,需要控制以保证结果可复现
+        # 选项不包含groun truth, 且不是拒绝回答
+        gene_ans = list(dict.fromkeys([item.strip() for item in item_data.split(';') if len(item) > 0 and not has_answer(ref, item) and not deal_judge_new(item)]))
+    else:
+        # print(f'origin str: {gene_str}')
+        item_data = gene_str.replace('\n\n', '\n')
+        cleaned_string = re.sub(r'\d{1,2}\.\s*', '', item_data).strip()
+        # print(f'clean_string: {cleaned_string}')
+        item_data = cleaned_string.split('\n')[1:]
+        # print(f'split: {cleaned_string.split('\n')[1:]}')
+        gene_ans = list(dict.fromkeys([item.split(';')[0].strip() for item in item_data if len(item) > 0 and not has_answer(ref, item) and not deal_judge_new(item)]))
+        # print(f'ans: {gene_ans}')
     return gene_ans
 
 def convert_qa_to_random_choices():
@@ -109,39 +122,42 @@ def convert_qa_to_generated_choices_with_gt():
     print(cnt/len(gene_data))
     write_2d_list_to_csv(f'../{dataset}/{dataset}-{mode}-gene-choice_test.csv', csv_data)
 
-def convert_qa_to_gene_none_data(path): 
+def convert_qa_to_gene_none_data(): 
     """
     path = '/Users/shiyuni/Documents/research/project/datasets/hq/hq-test-gene-choice_test.csv'
     convert_qa_to_gene_none_data(path)
     """
-    choice_idx = {'A':0, 'B':1, 'C':2, 'D':3}
-    data = []  
-    with open(path, mode='r') as file:
-        csv_reader = csv.reader(file)
-        # 遍历并打印每一行
-        for row in csv_reader:
-            data.append(row)
+    for dataset in ['nq', 'hq']:
+        for data_mode in ['train', 'test', 'dev']:
+            path = f'/Users/shiyuni/Documents/research/project/datasets/{dataset}/{dataset}-{data_mode}-gene-choice_test.csv'
+            choice_idx = {'A':0, 'B':1, 'C':2, 'D':3}
+            data = []  
+            with open(path, mode='r') as file:
+                csv_reader = csv.reader(file)
+                # 遍历并打印每一行
+                for row in csv_reader:
+                    data.append(row)
 
-    for idx in range(len(data)):
-        data[idx][1 + choice_idx[data[idx][-1]]] = 'None of the others' 
-    out_path = path.replace('gene-choice', 'gene-none')
-    write_2d_list_to_csv(out_path, data)
+            for idx in range(len(data)):
+                data[idx][1 + choice_idx[data[idx][-1]]] = 'None of the others' 
+            out_path = path.replace('gene-choice', 'gene-none')
+            write_2d_list_to_csv(out_path, data)
 
-def convert_qa_to_generated_choices(ans_cnt=3, with_none=True, freeform=False):
+def convert_qa_to_generated_choices(ans_cnt=3, with_none=False, freeform=False):
     """
     一共有两种setting, 两种setting相互独立
         - 第一种: 是否在选项中添加none选项
         - 第二种: 选项中是否添加free-form形式时生成的答案   
     -Example:
-    convert_qa_to_generated_choices(8, False, False)
+        convert_qa_to_generated_choices(8, False, False)
     """
     random.seed(0)
-    model_name='qwen7b'
+    model_name='llama7b'
     base_dir = '/Users/shiyuni/Documents/research/project/datasets'
     for mode in ['train', 'dev', 'test']:
         for dataset in ['nq', 'hq']:
             data = read_json(f'{base_dir}/{dataset}/{dataset}-{mode}.jsonl')
-            origin_gene_data = read_json(f'{base_dir}/{dataset}/{dataset}_{mode}_{model_name}_10_answers.jsonl')
+            origin_gene_data = read_json(f'{base_dir}/{dataset}/10answers/{dataset}_{mode}_{model_name}_10_answers.jsonl')
             if freeform == True:
                 freeform_data = read_json(f'{base_dir}/{dataset}/{model_name}/{dataset}_{mode}_{model_name}.jsonl')
                 assert len(freeform_data) == len(data)
@@ -151,7 +167,7 @@ def convert_qa_to_generated_choices(ans_cnt=3, with_none=True, freeform=False):
             cnt = 0
             acc = 0
             freeform_acc=0
-            gene_data = [clean_data('nishiyu', item['Res']) for item in origin_gene_data]
+            gene_data = [clean_data('nishiyu', item['Res'], model_name) for item in origin_gene_data]
             for idx in range(len(data)):
                 right_answer = ""
                 idx_answer = {-1: 'none', 0:'A', 1:'B', 2:'C', 3:'D', 4:'E', 5:'F', 6:'G', 7:'H', 8:'I', 9:'J'}
@@ -200,13 +216,26 @@ def convert_qa_to_generated_choices(ans_cnt=3, with_none=True, freeform=False):
                 sample_data.append(idx_answer[gt_choice_idx])
                 sample_data.insert(0, data[idx]['question'])
                 csv_data.append(sample_data)
-                print(sample_data)
+                # print(sample_data)
             print(f'less answer ratio: {cnt/len(gene_data)}')
             print(f'acc: {acc/len(data)}')
             print(f'freeform_acc:{freeform_acc/len(data)}')
-            write_2d_list_to_csv(f'{base_dir}/{dataset}/{dataset}-{mode}-gene-choice-without-gt-{ans_cnt}-none-{with_none}-freeform-{freeform}-{model_name}_test.csv', csv_data)
+            chat_mode = f'wo-gt-{ans_cnt}-none-{with_none}-freeform-{freeform}-{model_name}'
+            if not os.path.exists(f'{base_dir}/{dataset}/{chat_mode.lower()}'):
+                os.makedirs(f'{base_dir}/{dataset}/{chat_mode.lower()}')
+            out_path = f'{base_dir}/{dataset}/{chat_mode.lower()}/{dataset}-{mode}-gene-choice-without-gt-{ans_cnt}-none-{with_none}-freeform-{freeform}-{model_name}_test.csv'
+            write_2d_list_to_csv(out_path, csv_data)
 
 def convert_to_multi_round_data():
+    """
+    获得multi-round confidence extraction的数据, 构造数据为
+    question:[
+        1. question
+        2. response
+        3. Generate 10 possible answers
+        4. response
+    ]
+    """
     model_name='qwen7b'
     base_dir = '/Users/shiyuni/Documents/research/project/datasets'
     for mode in ['train', 'dev', 'test']:
@@ -228,6 +257,6 @@ def convert_to_multi_round_data():
     
 
 if __name__ == '__main__':
-    convert_to_multi_round_data()
+    convert_qa_to_generated_choices(8, False, False)
 
 

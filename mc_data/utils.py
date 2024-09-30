@@ -383,7 +383,7 @@ def deal_judge(pred):
 def deal_judge_new(pred):
     if pred is None:
         return True
-    if has_answer(["sorry", "apologize", "apologies", "uncertain", "false", "no", 'unsure', "cannot", "unknown", "no specific answer", "not provide", "cannot answer", "no information provided", "no answer", "not contain", "no definitive answer"], pred):
+    if has_answer(["sorry", "apologize", "apologies", "uncertain", "false", 'unsure', "cannot", "unknown", "no specific answer", "not provide", "cannot answer", "no information provided", "no answer", "not contain", "no definitive answer"], pred):
         return True
     return False
 

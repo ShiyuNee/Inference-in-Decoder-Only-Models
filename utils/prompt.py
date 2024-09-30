@@ -122,11 +122,25 @@ def get_prompt(sample, args):
 
 def get_prompt_for_multi_round(sample, args):
     # question, answer, generate, 10answers
+    """
+    两轮(post):
+        - factual question
+        - response
+        - determine right
+    三轮(post_multi_round):
+        - factual question
+        - response
+        - generate 10 answers
+        - 10 answers
+        - determine right
+    """
     prompt = ''
     template_prompt = model_template_dict_for_multi_round[args.model_name]
     # sys
     prompt += template_prompt['sys_prefix']
     prompt += template_prompt['end']
+    if args.type == 'qa_post_multi_round':
+        sample['question'] = sample['question'][:2]
     for idx in range(len(sample['question'])):
         if idx % 2 == 0:
             # question
