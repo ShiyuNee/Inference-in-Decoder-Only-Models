@@ -39,14 +39,6 @@ def run(args):
         input_dim = train_data[0].shape[-1] * train_data[0].shape[-2] # dim * layers
     if mode == 'mlp':
         net = MLPNet(dropout, input_dim)
-    elif mode == 'multi-mlp':
-        net = ParallelLinearLayers(input_dim)
-    elif mode == 'cnn':
-        net = CNNModel()
-    elif mode == 'lstm':
-        net = LSTMModel(input_dim, hidden_size, num_layers, dropout=dropout)
-    elif mode == 'transformer':
-        net = TransforModel(input_dim, hidden_size, num_layers, num_heads=4, dropout=dropout, need_layers=need_layers)
     else:
         raise ValueError("Specify a wrong model")
     print(f'model: {net}')

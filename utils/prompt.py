@@ -91,6 +91,12 @@ model_template_dict_for_multi_round = {
         'assis_prefix': '<|start_header_id|>assistant<|end_header_id|>\n\n',
         'end': "<|eot_id|>\n"
     },
+    'qwen2-7b-instruct':{
+        'sys_prefix': '<|im_start|>system\nYou are a helpful assistant.',
+        'user_prefix': '<|im_start|>user\n',
+        'assis_prefix': '<|im_start|>assistant\n',
+        'end': "<|im_end|>\n"
+    },
 }
 def get_prompt(sample, args):
     paras = ""
@@ -139,8 +145,8 @@ def get_prompt_for_multi_round(sample, args):
     # sys
     prompt += template_prompt['sys_prefix']
     prompt += template_prompt['end']
-    if args.type == 'qa_post_multi_round':
-        sample['question'] = sample['question'][:2]
+    if args.type == 'qa_post':
+        sample['question'] = sample['question'][:2] # qa_post_multi_round需要4个元素, qa_post只需要两个元素
     for idx in range(len(sample['question'])):
         if idx % 2 == 0:
             # question

@@ -104,6 +104,7 @@ def prepare_mode_data(path, hidden_modes, mode_hidden_states={}, labels=[]):
 def prepare_mode_data_for_dir(dir, mode, hidden_modes):
     """
     得到mmlu的所有mode得到的hidden states
+    为一个文件夹中的所有文件共同准备一个data.pt和label.pt
     """
     paths = [item for item in os.listdir(dir) if '.jsonl' in item]
     hidden_states = {}
@@ -124,6 +125,9 @@ def prepare_mode_data_for_dir(dir, mode, hidden_modes):
     torch.save(torch.tensor(labels), out_label)    
 
 def prepare_mode_data_for_nq(dir, mode, hidden_modes):
+    """
+    为一个文件夹下所有文件都提取一个data.pt和label.pt
+    """
     paths = [item for item in os.listdir(dir) if '.jsonl' in item]
     for path in paths:
         file_path = dir + path
@@ -142,6 +146,9 @@ def prepare_mode_data_for_nq(dir, mode, hidden_modes):
         torch.save(torch.tensor(labels), out_label) 
 
 def prepare_sample_train_data(train_path):
+    """
+    为采样后的数据准备.pt训练样本
+    """
     dir = '/'.join(train_path.split('/')[:-1]) + '/'
     mode = 'mid'
     hidden_states, labels = prepare_mode_data(train_path, ['first', 'avg', 'last'], {}, [])
@@ -153,16 +160,37 @@ def prepare_sample_train_data(train_path):
     out_label = dir + mode + '_layer/sample_train_labels.pt'
     torch.save(torch.tensor(labels), out_label)   
 
+def sample_training_data(data_path, acc=1):
+    """
+    采样训练数据以平衡训练样本
+    """
+    less_sample_list = []
+    sample_cnt = 1000
+    data = read_json(data_path)
+    for idx in range(len(data)):
+        if data[idx]['has_answer'] == acc:
+            less_sample_list.append(idx)
+    
+    remain_idx = [item for item in range(len(data)) if item not in less_sample_list]
+    total_idx = random.sample(less_sample_list, sample_cnt) + random.sample(remain_idx, sample_cnt)
+
+    new_data = [data[idx] for idx in range(len(data)) if idx in total_idx]
+    out_path = '/'.join(data_path.split('/')[:-1]) + '/' + data_path.split('/')[-1].replace('.jsonl', '-sample.jsonl')
+    write_jsonl(new_data, out_path)
+
+#需要加一个函数，因为生成多个答案当选项的问题可能有多个选项都正确
+
 if __name__ == "__main__":
-    for dataset in ['mmlu']:
-        for chat_mode in ['zero-shot-cot']:
-            for model in ['llama3-8b-instruct', 'llama2-chat-7b', 'qwen2']:
-                dir = f'../share/res/{dataset}/{model}/mid_layer/{chat_mode}/'
-                hidden_mode = ['first', 'last', 'avg', 'ans'] 
+    for dataset in ['nq']:
+        for chat_mode in ['zero-shot-wo-gt-2-none-false-freeform-false-qwen2']:
+            for model in ['qwen2']:
+                # dir = f'../share/res/{dataset}/{model}/mid_layer/{chat_mode}/'
+                # hidden_mode = ['first', 'last', 'avg', 'ans'] 
                 # prepare_mode_data_for_nq(dir, 'mid', hidden_mode)
-                prepare_mode_data_for_dir(dir, 'mid', hidden_mode)
-                # train_sample_path = f'../share/res/{dataset}-mc/{model}/mid_layer/{chat_mode}/{dataset}-train-none-choice-sample.jsonl'
-                # prepare_sample_train_data(train_sample_path)
+                # prepare_mode_data_for_dir(dir, 'mid', hidden_mode)
+                file_name = chat_mode.replace('zero-shot-', '').replace('wo','without').replace('false','False').replace('true','True').replace('qwen2', 'qwen7b')
+                train_sample_path = f'../share/res/{dataset}-mc/{model}/mid_layer/{chat_mode}/{dataset}-train-gene-choice-{file_name}.jsonl'
+                sample_training_data(train_sample_path, 1)
 
     
 

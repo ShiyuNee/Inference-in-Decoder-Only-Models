@@ -194,19 +194,6 @@ def different_knowledge_level():
     print(f'right->wrong: {round(len(right2wrong)/len(qa_data), 4)}')
     print(f'wrong->right: {round(len(wrong2right)/len(qa_data), 4)}')
 
-def sample_training_data_for_random_mc(rand_path, acc=0):
-    wrong_list = []
-    data = read_json(rand_path)
-    for idx in range(len(data)):
-        if data[idx]['has_answer'] == acc:
-            wrong_list.append(idx)
-    remain_idx = [item for item in range(len(data)) if item not in wrong_list]
-    total_idx = wrong_list + random.sample(remain_idx, len(wrong_list))
-
-    new_data = [data[idx] for idx in range(len(data)) if idx in total_idx]
-    out_path = '/'.join(rand_path.split('/')[:-1]) + '/' + rand_path.split('/')[-1].replace('choice', 'choice-sample')
-    write_jsonl(new_data, out_path)
-
 def compute_acc_for_mc_task(ref_path, gene_path):
     """
     ref_path:数据集的path

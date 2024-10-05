@@ -86,50 +86,60 @@ def convert_qa_to_random_choices():
 
 def convert_qa_to_generated_choices_with_gt():
     random.seed(0)
-    mode = 'test'
+
     dataset = 'hq'
-    data = read_json(f'../{dataset}/{dataset}-{mode}.jsonl')
-    gene_data = read_json(f'../{dataset}/{dataset}_{mode}_llama8b_10_answers.jsonl')
-    assert len(data) == len(gene_data)
-    csv_data = []
-    cnt = 0
-    for idx in range(len(data)):
-        temp_answers = []
-        temp_answers.append(data[idx]['reference'][0])
-        idx_answer = {0:'A', 1:'B', 2:'C', 3:'D'}
-        gene_ans = clean_data(data[idx]['reference'], gene_data[idx]['Res'])
-        sample_cnt = 3 # 出了ground truth, 还需要3个选项
-        need_cnt = 0
-        if len(gene_ans) >= 3:
-            sample_data = random.sample(gene_ans, sample_cnt)
-        else:
-            cnt += 1
-            sample_data = random.sample(gene_ans, len(gene_ans))
-            need_cnt = 3 - len(gene_ans)
-            remain_idx = [item for item in range(len(data)) if item != idx]
-            # 生成的不够, 从其他问题答案中随机采样
-            remain_sample = [data[item]['reference'][0] for item in random.sample(remain_idx, need_cnt)]
-            sample_data += remain_sample
-        sample_data.insert(0, data[idx]['reference'][0])
-        random.shuffle(sample_data)
-        for ans_idx in range(len(sample_data)):
-            if sample_data[ans_idx] == data[idx]['reference'][0]:
-                gt_choice = idx_answer[ans_idx]
-        sample_data.insert(0, data[idx]['question'])
-        sample_data.append(gt_choice)
-        print(sample_data)
-        csv_data.append(sample_data)
-    print(cnt/len(gene_data))
-    write_2d_list_to_csv(f'../{dataset}/{dataset}-{mode}-gene-choice_test.csv', csv_data)
+    model_name='gpt4o'
+    base_dir = '/Users/shiyuni/Documents/research/project/datasets'
+    for mode in ['train', 'dev', 'test']:
+        data = read_json(f'{base_dir}/{dataset}/{dataset}-{mode}.jsonl')
+        gene_data = read_json(f'{base_dir}/{dataset}/10answers/{dataset}_{mode}_gpt4o_mini_10_answers.jsonl')
+        assert len(data) == len(gene_data)
+        csv_data = []
+        cnt = 0
+        for idx in range(len(data)):
+            temp_answers = []
+            temp_answers.append(data[idx]['reference'][0])
+            idx_answer = {0:'A', 1:'B', 2:'C', 3:'D'}
+            gene_ans = clean_data(data[idx]['reference'], gene_data[idx]['Res'], 'gpt4o')
+            sample_cnt = 3 # 出了ground truth, 还需要3个选项
+            need_cnt = 0
+            if len(gene_ans) >= 3:
+                sample_data = random.sample(gene_ans, sample_cnt)
+            else:
+                cnt += 1
+                sample_data = random.sample(gene_ans, len(gene_ans))
+                need_cnt = 3 - len(gene_ans)
+                remain_idx = [item for item in range(len(data)) if item != idx]
+                # 生成的不够, 从其他问题答案中随机采样
+                remain_sample = [data[item]['reference'][0] for item in random.sample(remain_idx, need_cnt)]
+                sample_data += remain_sample
+            sample_data.insert(0, data[idx]['reference'][0])
+            random.shuffle(sample_data)
+            for ans_idx in range(len(sample_data)):
+                if sample_data[ans_idx] == data[idx]['reference'][0]:
+                    gt_choice = idx_answer[ans_idx]
+            sample_data.insert(0, data[idx]['question'])
+            sample_data.append(gt_choice)
+            print(sample_data)
+            csv_data.append(sample_data)
+        print(cnt/len(gene_data))
+        outdir = f'{base_dir}/{dataset}/3-{model_name}-gene-1-gt'
+        if not os.path.exists(outdir):
+            os.makedirs(outdir)
+        
+        write_2d_list_to_csv(f'{outdir}/{dataset}-{mode}-gene-choice-gpt4o_test.csv', csv_data)
 
 def convert_qa_to_gene_none_data(): 
     """
     path = '/Users/shiyuni/Documents/research/project/datasets/hq/hq-test-gene-choice_test.csv'
     convert_qa_to_gene_none_data(path)
     """
-    for dataset in ['nq', 'hq']:
+    model_name='gpt4o'
+    base_dir='/Users/shiyuni/Documents/research/project/datasets'
+    chat_mode = f'3-{model_name}-gene-1-gt'
+    for dataset in ['hq']:
         for data_mode in ['train', 'test', 'dev']:
-            path = f'/Users/shiyuni/Documents/research/project/datasets/{dataset}/{dataset}-{data_mode}-gene-choice_test.csv'
+            path = f'{base_dir}/{dataset}/{chat_mode}/{dataset}-{data_mode}-gene-choice-{model_name}_test.csv'
             choice_idx = {'A':0, 'B':1, 'C':2, 'D':3}
             data = []  
             with open(path, mode='r') as file:
@@ -140,7 +150,10 @@ def convert_qa_to_gene_none_data():
 
             for idx in range(len(data)):
                 data[idx][1 + choice_idx[data[idx][-1]]] = 'None of the others' 
-            out_path = path.replace('gene-choice', 'gene-none')
+            outdir = f'{base_dir}/{dataset}/{chat_mode.replace('gt', 'none')}'
+            if not os.path.exists(outdir):
+                os.makedirs(outdir)
+            out_path = f'{base_dir}/{dataset}/{chat_mode.replace('gt', 'none')}/{dataset}-{data_mode}-none-choice-{model_name}_test.csv'
             write_2d_list_to_csv(out_path, data)
 
 def convert_qa_to_generated_choices(ans_cnt=3, with_none=False, freeform=False):
@@ -152,7 +165,7 @@ def convert_qa_to_generated_choices(ans_cnt=3, with_none=False, freeform=False):
         convert_qa_to_generated_choices(8, False, False)
     """
     random.seed(0)
-    model_name='llama7b'
+    model_name='qwen7b'
     base_dir = '/Users/shiyuni/Documents/research/project/datasets'
     for mode in ['train', 'dev', 'test']:
         for dataset in ['nq', 'hq']:
@@ -257,6 +270,9 @@ def convert_to_multi_round_data():
     
 
 if __name__ == '__main__':
-    convert_qa_to_generated_choices(8, False, False)
+    # convert_qa_to_generated_choices(2, False, False)
+    # convert_qa_to_generated_choices_with_gt()
+    convert_qa_to_gene_none_data()
+
 
 
