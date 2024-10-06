@@ -81,7 +81,11 @@ model_template_dict = {
     'qwen2-7b-instruct':{
         'prefix': '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n<|im_start|>user\n',
         'end': '<|im_end|>\n<|im_start|>assistant'
-    }
+    },
+    'llama2-13b-chat':{
+        'prefix': '<s>[INST] <<SYS>>\nYou are a helpful assistant<</SYS>>\n\n',
+        'end': '[/INST]'
+    },
 }
 
 model_template_dict_for_multi_round = {

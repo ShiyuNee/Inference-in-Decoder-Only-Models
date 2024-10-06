@@ -11,7 +11,10 @@ all_choices=['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N
 class Generater:
     def __init__(self, args):
         self.args = args
-        self.model = AutoModelForCausalLM.from_pretrained(args.model_path)
+        if '7b' in self.args.model_name:
+            self.model = AutoModelForCausalLM.from_pretrained(args.model_path)
+        else:
+            self.model = AutoModelForCausalLM.from_pretrained(args.model_path).half()
         self.tokenizer = AutoTokenizer.from_pretrained(args.model_path)
         self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
         self.tokenizer.padding_side = "left"
@@ -20,7 +23,8 @@ class Generater:
         self.eos_id_dict = {
             'llama2-7b-chat': self.tokenizer.eos_token_id,
             'llama3-8b-instruct': self.tokenizer.convert_tokens_to_ids(['<|eot_id|>'])[0],
-            'qwen2-7b-instruct': self.tokenizer.eos_token_id
+            'qwen2-7b-instruct': self.tokenizer.eos_token_id,
+            'llama2-13b-chat': self.tokenizer.eos_token_id,
         }
         print('load generater finish.')
 
@@ -260,6 +264,7 @@ class Generater:
             need_layers = [int(len(outs['hidden_states'][0]) / 2)]
         else:
             raise ValueError('Specify the wrong need_layers')
+        # print(need_layers)
         
         res = [[] for _ in range(bt_size)]
         for bt in range(bt_size): # 遍历sample
